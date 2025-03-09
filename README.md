@@ -60,9 +60,9 @@ The output is 5 files in `dist`: 1 html, 1 js, 1 css, 2 woff icons.
 
 ## RPC requirements
 
-Esprl currently only supports user-ran Erigon 3 RPC nodes with 32GB ram, 2.5TB SSD, 4-core CPU & 30Mbps connection. It may support Reth soon.
+Esprl currently only supports user-ran Erigon 3 RPC nodes and may support [Reth](https://github.com/paradigmxyz/reth) soon. See [Hardware reqs](#hardware-requirements).
 
-[Download](https://github.com/erigontech/erigon/releases) Erigon binary / source code and start it:
+[Download](https://github.com/erigontech/erigon/releases) Erigon 3 binary / source code and start it:
 
 ```sh
 erigon --datadir=/data/erigon --prune.mode='archive' --torrent.download.rate="100mb" --http --http.api=eth,erigon,web3,net,debug,trace,txpool,ots --ws --http.corsdomain='*'
