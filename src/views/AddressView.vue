@@ -435,9 +435,7 @@ const loadTransfers = async (address: string) => {
       allTxns = newTxns.concat(cached);
     }
   } else {
-    const transfers = await prov.transfers(address);
-    // const transfers = await provider.transfers(address, { fromBlock: 21431407 })
-
+    const transfers = await prov.transfers(address); // { fromBlock: 21431407 })
     allTxns = transfersToTxnsList(transfers.reverse());
   }
 

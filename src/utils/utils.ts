@@ -281,6 +281,22 @@ export const txnsWithBlockDetailsToTxnsList = (
   });
 };
 
+export const removeTxnsListItemsDuplicates = (
+  txnsList: TransactionListItem[][],
+): TransactionListItem[][] => {
+  const uniqueTxnsList: TransactionListItem[][] = []
+  const hashes = new Set<string>()
+  for (const txns of txnsList) {
+    const txnHash = txns[0].hash
+    if (hashes.has(txnHash)) {
+      continue
+    }
+    hashes.add(txnHash)
+    uniqueTxnsList.push(txns)
+  }
+  return uniqueTxnsList
+}
+
 // TODO: remove, not used
 export const lastTxnsDataFromBlocks = (blocks: BlockInfo[], limit: number) => {
   const txnsData: { hash: string; timestamp: number }[] = [];

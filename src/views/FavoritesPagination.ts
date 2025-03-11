@@ -5,7 +5,7 @@ import {
   getTransactionsAfterWithBlockDetails,
   getTransactionsBeforeWithBlockDetails,
 } from '@/utils/network';
-import { txnsWithBlockDetailsToTxnsList } from '@/utils/utils';
+import { txnsWithBlockDetailsToTxnsList, removeTxnsListItemsDuplicates } from '@/utils/utils';
 import { Pagination } from '@/views/Pagination';
 import { Web3Provider } from 'micro-eth-signer/net';
 
@@ -80,7 +80,8 @@ export class FavoritesPagination {
         })
       );
 
-      allTxns = addressesFirstPage.flat();
+      allTxns = removeTxnsListItemsDuplicates(addressesFirstPage.flat())
+
       allTxns.sort((a, b) => {
         if (a[0].timestamp === '-') return 1;
         if (b[0].timestamp === '-') return -1;
@@ -186,7 +187,8 @@ export class FavoritesPagination {
       })
     );
 
-    const newTxns = result.flat();
+    const newTxns = removeTxnsListItemsDuplicates(result.flat())
+
     newTxns.sort((a, b) => {
       if (a[0].timestamp === '-') return 1;
       if (b[0].timestamp === '-') return -1;
@@ -239,7 +241,7 @@ export class FavoritesPagination {
       })
     );
 
-    const allTxns = addressesLastPage.flat();
+    const allTxns = removeTxnsListItemsDuplicates(addressesLastPage.flat())
     allTxns.sort((a, b) => {
       if (a[0].timestamp === '-') return 1;
       if (b[0].timestamp === '-') return -1;
@@ -347,7 +349,7 @@ export class FavoritesPagination {
       })
     );
 
-    const newTxns = result.flat();
+    const newTxns = removeTxnsListItemsDuplicates(result.flat())
     newTxns.sort((a, b) => {
       if (a[0].timestamp === '-') return 1;
       if (b[0].timestamp === '-') return -1;
