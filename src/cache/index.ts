@@ -37,7 +37,7 @@ export class AddressCache {
     this.internalTransactions.clear();
     this.tokenTransfersTransactions.clear();
     this.unspent.clear();
-    this.updatedAtTimestamp.clear()
+    this.updatedAtTimestamp.clear();
     this.unspentEthUsd.clear();
     this.tokenInfo.clear();
     this.tokenCreator.clear();

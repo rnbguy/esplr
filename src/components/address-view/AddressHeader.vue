@@ -4,7 +4,7 @@ import {
   fromWeiToEth,
   shortenTx,
   fromTokenBalanceToHumanReadable,
-  formatTimestampLocalWithoutYear
+  formatTimestampLocalWithoutYear,
 } from '@/utils/utils';
 import type { TokenBalance, OtsGetContractCreatorResponse, ERC20TokenInfo } from '@/types';
 import { AddressCache } from '@/cache';
@@ -37,6 +37,8 @@ const props = defineProps<{
   isContract: boolean;
   tokenCreator: OtsGetContractCreatorResponse | null;
   tokenInfo: ERC20TokenInfo | null;
+  showErigonTokensWarning: boolean;
+  showErigonPricesWarning: boolean;
 }>();
 
 const readableTokenBalance = (token: TokenBalance) => {
@@ -90,7 +92,9 @@ const toggleFavorite = () => {
               <i class="bi bi-arrow-clockwise"></i> Update
             </button>
             <div class="last-update">
-              {{ lastUpdateTimestamp > 0 ? formatTimestampLocalWithoutYear(lastUpdateTimestamp) : '' }}
+              {{
+                lastUpdateTimestamp > 0 ? formatTimestampLocalWithoutYear(lastUpdateTimestamp) : ''
+              }}
             </div>
           </div>
         </div>
@@ -129,7 +133,7 @@ const toggleFavorite = () => {
       <span v-if="loadingTokens" class="spinner"></span>
     </div>
     <div class="tokens-holdings">
-      <div>
+      <div v-if="!showErigonPricesWarning">
         {{ unspent ? `${fromWeiToEth(unspent.balance, 18)}` : 'loading ...' }}
         ETH
         <span v-if="settingsStore.showUsdPrices"> ({{ unspentEthUsd }}$) </span>
@@ -137,16 +141,26 @@ const toggleFavorite = () => {
         <span class="token-name">Ethereum</span>
         <span v-if="!settingsStore.showUsdPrices">)</span>
       </div>
-      <div v-if="loadingTokens">Loading tokens may take time...</div>
-      <div v-if="!loadingTokens && !tokens?.length">No tokens found</div>
-      <div v-if="tokens.length" class="token-container">
-        <div class="token-item" v-for="(t, i) in tokens" :key="i">
-          <div v-if="t.info && t.info.symbol">
-            {{ readableTokenBalance(t) }}
-            {{ settingsStore.showUsdPrices && t.usd ? `(${t?.usd.balance}$)` : '' }}
-            {{ settingsStore.showUsdPrices && t.usd && t.usd.balance ? '' : '('
-            }}<span class="token-name">{{ t.info?.name || 'Unknown token' }}</span
-            >{{ settingsStore.showUsdPrices && t.usd && t.usd.balance ? '' : ')' }}
+
+      <div v-if="showErigonTokensWarning || showErigonPricesWarning">
+        <div class="warning">
+          <i class="bi bi-exclamation-triangle"></i>
+          Only Erigon RPC is supported for token balances.
+        </div>
+      </div>
+
+      <div v-if="!showErigonTokensWarning">
+        <div v-if="loadingTokens">Loading tokens may take time...</div>
+        <div v-if="!loadingTokens && !tokens?.length">No tokens found</div>
+        <div v-if="tokens.length" class="token-container">
+          <div class="token-item" v-for="(t, i) in tokens" :key="i">
+            <div v-if="t.info && t.info.symbol">
+              {{ readableTokenBalance(t) }}
+              {{ settingsStore.showUsdPrices && t.usd ? `(${t?.usd.balance}$)` : '' }}
+              {{ settingsStore.showUsdPrices && t.usd && t.usd.balance ? '' : '('
+              }}<span class="token-name">{{ t.info?.name || 'Unknown token' }}</span
+              >{{ settingsStore.showUsdPrices && t.usd && t.usd.balance ? '' : ')' }}
+            </div>
           </div>
         </div>
       </div>

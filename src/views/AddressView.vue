@@ -19,6 +19,7 @@ import FavoritesHeader from '@/components/address-view/FavoritesHeader.vue';
 import TransactionsList from '@/components/address-view/TransactionsList.vue';
 
 import { useSettingsStore } from '@/stores/settings';
+import { useAppStore } from '@/stores/app';
 import { AddressCache } from '@/cache';
 import { Pagination } from '@/views/Pagination';
 import { DetailsPagination } from '@/views/DetailsPagination';
@@ -30,6 +31,7 @@ if (!provider) throw new Error('Provider not found!');
 const prov = provider.value;
 
 const settingsStore = useSettingsStore();
+const appStore = useAppStore();
 
 const SHOW_TXNS_LIMIT = 25;
 
@@ -67,6 +69,11 @@ const sumUnspent = ref(0n);
 const sumBalance = ref(0n);
 const sumUnspentEthUsd = ref(0);
 const favoritesWithDetails = ref<FavoriteAddress[]>([]);
+
+const showErigonTokensWarning = ref(false);
+const showErigonPricesWarning = ref(false);
+const showErigonInternalTxnsWarning = ref(false);
+const showErigonDetailsTxnsWarning = ref(false);
 
 watch(
   () => route.params.address,
@@ -220,8 +227,17 @@ const loadUnspent = async (address: string) => {
       unspentEthUsd.value = cache.getUnspentEthUsd(address) ?? 0;
       return;
     }
-    const link = new Chainlink(prov);
-    const usdTokenPrice = await link.coinPrice('ETH');
+    let usdTokenPrice = null;
+    try {
+      const link = new Chainlink(prov);
+      usdTokenPrice = await link.coinPrice('ETH');
+    } catch (error) {
+      // console.error('Token price loading error:');
+      // console.error('error', error);
+      showErigonPricesWarning.value = true;
+      return;
+    }
+    showErigonPricesWarning.value = false;
     const balance = unspent.value?.balance ?? 0n;
     const ethDecimals = 18;
     const usd = usdBalance(balance, ethDecimals, usdTokenPrice);
@@ -335,7 +351,19 @@ const loadAddressTransactions = async (address: string) => {
     cachedTxns = cached.length ? cached : null;
   }
 
-  const txnsToShow = await pagination.showFirstPage(address, cachedTxns);
+  let txnsToShow = null;
+  try {
+    txnsToShow = await pagination.showFirstPage(address, cachedTxns);
+  } catch (error) {
+    // console.error('Transactions loading error:');
+    // console.error('error', error);
+    setLoadingTxns(false);
+    updateInternalTransactionsRequested = false;
+    showErigonInternalTxnsWarning.value = true;
+    return;
+  }
+  showErigonInternalTxnsWarning.value = false;
+
   transactionsList.value = txnsToShow;
 
   cache.addInternalTransactions(
@@ -362,12 +390,26 @@ const getPositiveTokenBalances = async (prov: Web3Provider, address: string) => 
 const loadAddressesTokens = async (addresses: string[]) => {
   setLoadingTokens(true);
 
-  const results = await Promise.all(
-    addresses.map(async (addr) => {
-      const positiveBalances = await getPositiveTokenBalances(prov, addr);
-      return await loadTokenInfoByBalances(prov, positiveBalances);
-    })
-  );
+  let results = null;
+  try {
+    if (!appStore.isErigon) {
+      throw new Error('Only Erigon RPC is supported for token balances.');
+    }
+    results = await Promise.all(
+      addresses.map(async (addr) => {
+        const positiveBalances = await getPositiveTokenBalances(prov, addr);
+        return await loadTokenInfoByBalances(prov, positiveBalances);
+      })
+    );
+  } catch (error) {
+    // console.error('Balances loading error:')
+    // console.error('error', error);
+    setLoadingTokens(false);
+    showErigonTokensWarning.value = true;
+    return;
+  }
+  showErigonTokensWarning.value = false;
+
   const allTokens = results.flat();
 
   const allTokensSumBalances = new Map<string, TokenBalance>();
@@ -427,7 +469,21 @@ const loadAddressTokens = async (address: string) => {
     return;
   }
 
-  const positiveBalances = await getPositiveTokenBalances(prov, address);
+  let positiveBalances = null;
+  try {
+    if (!appStore.isErigon) {
+      throw new Error('Only Erigon RPC is supported for token balances.');
+    }
+    positiveBalances = await getPositiveTokenBalances(prov, address);
+  } catch (error) {
+    // console.error('Balances loading error:')
+    // console.error('error', error);
+    setLoadingTokens(false);
+    showErigonTokensWarning.value = true;
+    return;
+  }
+  showErigonTokensWarning.value = false;
+
   let result = await loadTokenInfoByBalances(prov, positiveBalances);
   if (settingsStore.showUsdPrices) {
     result = await injectUsdPriceToTokenBalances(result);
@@ -440,6 +496,15 @@ const loadAddressTokens = async (address: string) => {
 };
 
 const loadTransfers = async (address: string) => {
+  if (!appStore.isErigon) {
+    updateTokenTransfersRequested = false;
+    showErigonDetailsTxnsWarning.value = true;
+    setTimeout(() => {
+      showErigonDetailsTxnsWarning.value = false;
+    }, 7000);
+    return;
+  }
+
   setTab('details');
   setLoadingTxns(true);
 
@@ -447,23 +512,34 @@ const loadTransfers = async (address: string) => {
 
   // load from cache by default
   let allTxns: TransactionListItem[][] = [];
-  if (!updateTokenTransfersRequested && hasCache) {
-    allTxns = cache.getTokenTransfersTransactions(address) ?? [];
-  } else if (updateTokenTransfersRequested && hasCache) {
-    const cached = cache.getTokenTransfersTransactions(address) ?? [];
-    const block = cached.length ? parseInt(cached[0][0].blockNumber) : 0;
-    const fromBlock = block > 0 ? block + 1 : 0;
-    const transfers = await prov.transfers(address, { fromBlock });
-    const newTxns = transfersToTxnsList(transfers.reverse());
-    if (fromBlock === 0) {
-      allTxns = newTxns;
+
+  try {
+    if (!updateTokenTransfersRequested && hasCache) {
+      allTxns = cache.getTokenTransfersTransactions(address) ?? [];
+    } else if (updateTokenTransfersRequested && hasCache) {
+      const cached = cache.getTokenTransfersTransactions(address) ?? [];
+      const block = cached.length ? parseInt(cached[0][0].blockNumber) : 0;
+      const fromBlock = block > 0 ? block + 1 : 0;
+      const transfers = await prov.transfers(address, { fromBlock });
+      const newTxns = transfersToTxnsList(transfers.reverse());
+      if (fromBlock === 0) {
+        allTxns = newTxns;
+      } else {
+        allTxns = newTxns.concat(cached);
+      }
     } else {
-      allTxns = newTxns.concat(cached);
+      const transfers = await prov.transfers(address); // { fromBlock: 21431407 })
+      allTxns = transfersToTxnsList(transfers.reverse());
     }
-  } else {
-    const transfers = await prov.transfers(address); // { fromBlock: 21431407 })
-    allTxns = transfersToTxnsList(transfers.reverse());
+  } catch (error) {
+    // console.error('Token transfers loading error:')
+    // console.error('error', error);
+    setLoadingTxns(false);
+    updateTokenTransfersRequested = false;
+    showErigonDetailsTxnsWarning.value = true;
+    return;
   }
+  showErigonDetailsTxnsWarning.value = false;
 
   cache.addTokenTransfersTransactions(address, allTxns);
   detailsPagination.updateTransactions(allTxns);
@@ -579,6 +655,8 @@ const deleteFavorite = async (address: string) => {
     :isContract="!!tokenCreator"
     :tokenCreator="tokenCreator"
     :tokenInfo="tokenInfo"
+    :showErigonTokensWarning="showErigonTokensWarning"
+    :showErigonPricesWarning="showErigonPricesWarning"
   />
   <FavoritesHeader
     v-if="isFavorites"
@@ -591,6 +669,7 @@ const deleteFavorite = async (address: string) => {
     :sumUnspentEthUsd="sumUnspentEthUsd"
     @updateData="updateData"
     @deleteFavorite="deleteFavorite"
+    :showErigonTokensWarning="showErigonTokensWarning"
   />
 
   <TransactionsList
@@ -607,5 +686,7 @@ const deleteFavorite = async (address: string) => {
     @loadTokensTransfers="loadTokensTransfers"
     @loadInternalTransactions="loadInternalTransactions"
     @openPage="openPage"
+    :showErigonInternalTxnsWarning="showErigonInternalTxnsWarning"
+    :showErigonDetailsTxnsWarning="showErigonDetailsTxnsWarning"
   />
 </template>

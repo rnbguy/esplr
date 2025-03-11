@@ -80,7 +80,7 @@ export class FavoritesPagination {
         })
       );
 
-      allTxns = removeTxnsListItemsDuplicates(addressesFirstPage.flat())
+      allTxns = removeTxnsListItemsDuplicates(addressesFirstPage.flat());
 
       allTxns.sort((a, b) => {
         if (a[0].timestamp === '-') return 1;
@@ -187,7 +187,7 @@ export class FavoritesPagination {
       })
     );
 
-    const newTxns = removeTxnsListItemsDuplicates(result.flat())
+    const newTxns = removeTxnsListItemsDuplicates(result.flat());
 
     newTxns.sort((a, b) => {
       if (a[0].timestamp === '-') return 1;
@@ -241,7 +241,7 @@ export class FavoritesPagination {
       })
     );
 
-    const allTxns = removeTxnsListItemsDuplicates(addressesLastPage.flat())
+    const allTxns = removeTxnsListItemsDuplicates(addressesLastPage.flat());
     allTxns.sort((a, b) => {
       if (a[0].timestamp === '-') return 1;
       if (b[0].timestamp === '-') return -1;
@@ -349,7 +349,7 @@ export class FavoritesPagination {
       })
     );
 
-    const newTxns = removeTxnsListItemsDuplicates(result.flat())
+    const newTxns = removeTxnsListItemsDuplicates(result.flat());
     newTxns.sort((a, b) => {
       if (a[0].timestamp === '-') return 1;
       if (b[0].timestamp === '-') return -1;

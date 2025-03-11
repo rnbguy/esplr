@@ -4,7 +4,7 @@ import {
   fromWeiToEth,
   fromTokenBalanceToHumanReadable,
   shortenFavAddr,
-  formatTimestampLocalWithoutYear
+  formatTimestampLocalWithoutYear,
 } from '@/utils/utils';
 
 const emit = defineEmits(['updateData', 'deleteFavorite']);
@@ -20,6 +20,7 @@ defineProps<{
   loadingTokens: boolean;
   lastUpdateTimestamp: number;
   sumUnspentEthUsd: number;
+  showErigonTokensWarning: boolean;
 }>();
 
 const readableTokenBalance = (token: TokenBalance) => {
@@ -111,15 +112,25 @@ const handleCopy = (event: Event, text: string) => {
         <span class="token-name">Ethereum</span>
         <span v-if="!settingsStore.showUsdPrices">)</span>
       </div>
-      <div v-if="loadingTokens">Loading tokens may take time...</div>
-      <div v-if="!loadingTokens && !tokens?.length">No tokens found</div>
-      <div v-if="tokens?.length" class="token-container">
-        <div class="token-item" v-for="(t, i) in tokens" :key="i">
-          {{ readableTokenBalance(t) }}
-          {{ settingsStore.showUsdPrices && t.usd ? `(${t?.usd.balance}$)` : '' }}
-          {{ settingsStore.showUsdPrices && t.usd && t.usd.balance ? '' : '('
-          }}<span class="token-name">{{ t.info?.name || 'Unknown token' }}</span
-          >{{ settingsStore.showUsdPrices && t.usd && t.usd.balance ? '' : ')' }}
+
+      <div v-if="showErigonTokensWarning">
+        <div class="warning">
+          <i class="bi bi-exclamation-triangle"></i>
+          Only Erigon RPC is supported for token balances.
+        </div>
+      </div>
+
+      <div v-if="!showErigonTokensWarning">
+        <div v-if="loadingTokens">Loading tokens may take time...</div>
+        <div v-if="!loadingTokens && !tokens?.length">No tokens found</div>
+        <div v-if="tokens?.length" class="token-container">
+          <div class="token-item" v-for="(t, i) in tokens" :key="i">
+            {{ readableTokenBalance(t) }}
+            {{ settingsStore.showUsdPrices && t.usd ? `(${t?.usd.balance}$)` : '' }}
+            {{ settingsStore.showUsdPrices && t.usd && t.usd.balance ? '' : '('
+            }}<span class="token-name">{{ t.info?.name || 'Unknown token' }}</span
+            >{{ settingsStore.showUsdPrices && t.usd && t.usd.balance ? '' : ')' }}
+          </div>
         </div>
       </div>
     </div>

@@ -41,6 +41,11 @@ const handleConnect = async (url: string) => {
     return;
   }
   appStore.setRpcUrl(url);
+
+  const client = await provider.value.call('web3_clientVersion');
+  const isErigon = client.toLowerCase().includes('erigon');
+  appStore.setIsErigon(isErigon);
+
   connected.value = true;
 };
 </script>

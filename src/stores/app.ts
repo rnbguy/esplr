@@ -4,6 +4,7 @@ import { defineStore } from 'pinia';
 export const useAppStore = defineStore('app', () => {
   const networkName = ref('');
   const rpcUrl = ref('');
+  const isErigon = ref(false);
 
   function setNetworkName(name: string) {
     networkName.value = name;
@@ -13,5 +14,9 @@ export const useAppStore = defineStore('app', () => {
     rpcUrl.value = url;
   }
 
-  return { setNetworkName, networkName, setRpcUrl, rpcUrl };
+  function setIsErigon(value: boolean) {
+    isErigon.value = value;
+  }
+
+  return { setNetworkName, networkName, setRpcUrl, rpcUrl, setIsErigon, isErigon };
 });

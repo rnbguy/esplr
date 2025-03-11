@@ -193,17 +193,17 @@ export const getLastTxnsByAddresses = async (
     });
   });
 
-  const allTxnsList = txnsByAddr.flat()
-  const uniqueTxnsList: OtsSearchTransactionExtended[] = []
+  const allTxnsList = txnsByAddr.flat();
+  const uniqueTxnsList: OtsSearchTransactionExtended[] = [];
 
-  const hashes = new Set<string>()
+  const hashes = new Set<string>();
   for (const txn of allTxnsList) {
-    const txnHash = txn.txn.hash
+    const txnHash = txn.txn.hash;
     if (hashes.has(txnHash)) {
-      continue
+      continue;
     }
-    hashes.add(txnHash)
-    uniqueTxnsList.push(txn)
+    hashes.add(txnHash);
+    uniqueTxnsList.push(txn);
   }
 
   const sortedTxns = uniqueTxnsList.sort((a, b) => {

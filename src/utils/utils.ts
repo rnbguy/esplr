@@ -73,7 +73,7 @@ export const passedSecondsFrom = (milliseconds: number) => {
 };
 
 export const hasMinutesPassed = (pastTimestamp: number, minutes: number) => {
-  return Date.now() - pastTimestamp > minutes * 60 * 1000
+  return Date.now() - pastTimestamp > minutes * 60 * 1000;
 };
 
 export const getTransactionMethodName = (
@@ -286,20 +286,20 @@ export const txnsWithBlockDetailsToTxnsList = (
 };
 
 export const removeTxnsListItemsDuplicates = (
-  txnsList: TransactionListItem[][],
+  txnsList: TransactionListItem[][]
 ): TransactionListItem[][] => {
-  const uniqueTxnsList: TransactionListItem[][] = []
-  const hashes = new Set<string>()
+  const uniqueTxnsList: TransactionListItem[][] = [];
+  const hashes = new Set<string>();
   for (const txns of txnsList) {
-    const txnHash = txns[0].hash
+    const txnHash = txns[0].hash;
     if (hashes.has(txnHash)) {
-      continue
+      continue;
     }
-    hashes.add(txnHash)
-    uniqueTxnsList.push(txns)
+    hashes.add(txnHash);
+    uniqueTxnsList.push(txns);
   }
-  return uniqueTxnsList
-}
+  return uniqueTxnsList;
+};
 
 // TODO: remove, not used
 export const lastTxnsDataFromBlocks = (blocks: BlockInfo[], limit: number) => {
