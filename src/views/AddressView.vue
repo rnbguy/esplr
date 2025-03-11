@@ -4,8 +4,9 @@ import { useRoute } from 'vue-router';
 import { Web3Provider, Chainlink } from 'micro-eth-signer/net';
 import { TOKENS } from 'micro-eth-signer/abi';
 import type { Unspent } from 'node_modules/micro-eth-signer/net/archive';
+import { CACHE_INTERVAL_MINUTES } from '@/config';
 import { getUnspent, getERC20TokenInfo, loadTokenInfoByBalances } from '@/utils/network';
-import { transfersToTxnsList, currentDateLocalWithoutYear, usdBalance } from '@/utils/utils';
+import { transfersToTxnsList, usdBalance, hasMinutesPassed } from '@/utils/utils';
 import type {
   ERC20TokenInfo,
   TransactionListItem,
@@ -44,7 +45,7 @@ const tokenInfo = ref<ERC20TokenInfo | null>(null);
 const loadingTokens = ref(false);
 const tokens = ref<TokenBalance[]>([]);
 const activeTab = ref('internal');
-const lastUpdateDate = ref('');
+const lastUpdateTimestamp = ref(0);
 const warning = ref('');
 const loadingPage = ref(false);
 
@@ -71,7 +72,7 @@ watch(
   () => route.params.address,
   async (newAddress) => {
     setTab('internal');
-    await mount(newAddress as string);
+    await mountOrUpdate(newAddress as string);
   }
 );
 
@@ -88,9 +89,29 @@ onMounted(async () => {
   if (isFavorites.value) {
     await mountFavorites();
   } else {
-    await mount(route.params.address as string);
+    await mountOrUpdate(route.params.address as string);
   }
 });
+
+const mountOrUpdate = async (addr: string) => {
+  if (cache.hasUpdatedAtTimestamp(addr) && window.navigator.onLine) {
+    const lastUpdateTimestamp = cache.getUpdatedAtTimestamp(addr);
+    if (hasMinutesPassed(lastUpdateTimestamp, CACHE_INTERVAL_MINUTES)) {
+      address.value = addr;
+      await updateData();
+      return;
+    }
+  }
+
+  if (!window.navigator.onLine) {
+    warning.value = 'No internet connection. Please check your network settings.';
+    setTimeout(() => {
+      warning.value = '';
+    }, 7000);
+  }
+
+  await mount(addr);
+};
 
 const updateData = async () => {
   if (!window.navigator.onLine) {
@@ -102,9 +123,7 @@ const updateData = async () => {
   }
 
   cache.clearAddressForUpdate(address.value);
-  updateRequested = true;
-  updateInternalTransactionsRequested = true;
-  updateTokenTransfersRequested = true;
+  setUpdatingStatus();
   if (isFavorites.value) {
     // updateFavoritesTransactionsRequested = true
     cache.clearInternalTransactionsFavorites();
@@ -112,6 +131,12 @@ const updateData = async () => {
   } else {
     await mount(address.value);
   }
+};
+
+const setUpdatingStatus = () => {
+  updateRequested = true;
+  updateInternalTransactionsRequested = true;
+  updateTokenTransfersRequested = true;
 };
 
 const mountFavorites = async () => {
@@ -138,7 +163,7 @@ const mountFavorites = async () => {
   pageDataPromises.push(tokensPromise);
 
   await Promise.all(pageDataPromises);
-  lastUpdateDate.value = currentDateLocalWithoutYear();
+  lastUpdateTimestamp.value = Date.now();
 };
 
 const mount = async (addr: string) => {
@@ -168,12 +193,13 @@ const mount = async (addr: string) => {
   pageDataPromises.push(tokensPromise);
 
   await Promise.all(pageDataPromises);
-  if (cache.hasUpdateDate(addr) && !updateRequested) {
-    lastUpdateDate.value = cache.getUpdateDate(addr) ?? '';
+  if (cache.hasUpdatedAtTimestamp(addr) && !updateRequested) {
+    lastUpdateTimestamp.value = cache.getUpdatedAtTimestamp(addr);
   } else {
-    lastUpdateDate.value = currentDateLocalWithoutYear();
-    cache.setUpdateDate(addr, lastUpdateDate.value);
+    lastUpdateTimestamp.value = Date.now();
+    cache.setUpdatedAtTimestamp(addr, lastUpdateTimestamp.value);
   }
+
   updateRequested = false;
 };
 
@@ -547,7 +573,7 @@ const deleteFavorite = async (address: string) => {
     :unspent="unspent"
     :tokens="tokens"
     :loadingTokens="loadingTokens"
-    :lastUpdateDate="lastUpdateDate"
+    :lastUpdateTimestamp="lastUpdateTimestamp"
     :unspentEthUsd="unspentEthUsd"
     @updateData="updateData"
     :isContract="!!tokenCreator"
@@ -561,7 +587,7 @@ const deleteFavorite = async (address: string) => {
     :favorites="favoritesWithDetails"
     :loadingTokens="loadingTokens"
     :tokens="tokens"
-    :lastUpdateDate="lastUpdateDate"
+    :lastUpdateTimestamp="lastUpdateTimestamp"
     :sumUnspentEthUsd="sumUnspentEthUsd"
     @updateData="updateData"
     @deleteFavorite="deleteFavorite"

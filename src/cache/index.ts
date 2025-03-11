@@ -13,7 +13,7 @@ export class AddressCache {
   private internalTransactions: Map<string, TransactionListItem[][]> = new Map();
   private tokenTransfersTransactions: Map<string, TransactionListItem[][]> = new Map();
   private unspent: Map<string, Unspent> = new Map();
-  private updateDate: Map<string, string> = new Map();
+  private updatedAtTimestamp: Map<string, number> = new Map();
   private unspentEthUsd: Map<string, number> = new Map();
 
   private tokenInfo: Map<string, ERC20TokenInfo | null> = new Map();
@@ -37,10 +37,10 @@ export class AddressCache {
     this.internalTransactions.clear();
     this.tokenTransfersTransactions.clear();
     this.unspent.clear();
-    this.updateDate.clear();
+    this.updatedAtTimestamp.clear()
+    this.unspentEthUsd.clear();
     this.tokenInfo.clear();
     this.tokenCreator.clear();
-    this.unspentEthUsd.clear();
   }
 
   clearAddress(address: string): void {
@@ -53,10 +53,10 @@ export class AddressCache {
     this.tokens.delete(address);
     this.internalTransactions.delete(address);
     this.unspent.delete(address);
+    this.updatedAtTimestamp.delete(address);
+    this.unspentEthUsd.delete(address);
     this.tokenInfo.delete(address);
     this.tokenCreator.delete(address);
-    this.updateDate.delete(address);
-    this.unspentEthUsd.delete(address);
   }
 
   allCachedAddresses(): string[] {
@@ -66,7 +66,7 @@ export class AddressCache {
         ...this.internalTransactions.keys(),
         ...this.tokenTransfersTransactions.keys(),
         ...this.unspent.keys(),
-        ...this.updateDate.keys(),
+        ...this.updatedAtTimestamp.keys(),
         ...this.tokenInfo.keys(),
         ...this.tokenCreator.keys(),
       ])
@@ -94,23 +94,23 @@ export class AddressCache {
   }
 
   /**
-   * Update date cache
+   * Update date timestamp cache
    */
 
-  setUpdateDate(address: string, date: string): void {
-    this.updateDate.set(address, date);
+  setUpdatedAtTimestamp(address: string, timestamp: number): void {
+    this.updatedAtTimestamp.set(address, timestamp);
   }
 
-  getUpdateDate(address: string): string | undefined {
-    return this.updateDate.get(address);
+  getUpdatedAtTimestamp(address: string): number {
+    return this.updatedAtTimestamp.get(address) ?? 0;
   }
 
-  hasUpdateDate(address: string): boolean {
-    return this.updateDate.has(address);
+  hasUpdatedAtTimestamp(address: string): boolean {
+    return this.updatedAtTimestamp.has(address);
   }
 
-  removeUpdateDate(address: string): void {
-    this.updateDate.delete(address);
+  removeUpdatedAtTimestamp(address: string): void {
+    this.updatedAtTimestamp.delete(address);
   }
 
   /**

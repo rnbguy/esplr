@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { onBeforeUpdate, onMounted, ref } from 'vue';
-import { fromWeiToEth, shortenTx, fromTokenBalanceToHumanReadable } from '@/utils/utils';
+import {
+  fromWeiToEth,
+  shortenTx,
+  fromTokenBalanceToHumanReadable,
+  formatTimestampLocalWithoutYear
+} from '@/utils/utils';
 import type { TokenBalance, OtsGetContractCreatorResponse, ERC20TokenInfo } from '@/types';
 import { AddressCache } from '@/cache';
 
@@ -28,7 +33,7 @@ const props = defineProps<{
   unspentEthUsd: number;
   tokens: TokenBalance[];
   loadingTokens: boolean;
-  lastUpdateDate: string;
+  lastUpdateTimestamp: number;
   isContract: boolean;
   tokenCreator: OtsGetContractCreatorResponse | null;
   tokenInfo: ERC20TokenInfo | null;
@@ -85,7 +90,7 @@ const toggleFavorite = () => {
               <i class="bi bi-arrow-clockwise"></i> Update
             </button>
             <div class="last-update">
-              {{ lastUpdateDate }}
+              {{ lastUpdateTimestamp > 0 ? formatTimestampLocalWithoutYear(lastUpdateTimestamp) : '' }}
             </div>
           </div>
         </div>
@@ -95,7 +100,7 @@ const toggleFavorite = () => {
           <i class="bi bi-arrow-clockwise"></i> Update
         </button>
         <div class="last-update">
-          {{ lastUpdateDate }}
+          {{ lastUpdateTimestamp > 0 ? formatTimestampLocalWithoutYear(lastUpdateTimestamp) : '' }}
         </div>
       </div>
     </div>

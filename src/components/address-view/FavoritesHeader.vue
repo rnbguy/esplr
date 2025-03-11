@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import type { TokenBalance, FavoriteAddress } from '@/types';
-import { fromWeiToEth, fromTokenBalanceToHumanReadable, shortenFavAddr } from '@/utils/utils';
+import {
+  fromWeiToEth,
+  fromTokenBalanceToHumanReadable,
+  shortenFavAddr,
+  formatTimestampLocalWithoutYear
+} from '@/utils/utils';
 
 const emit = defineEmits(['updateData', 'deleteFavorite']);
 
@@ -13,7 +18,7 @@ defineProps<{
   balance: bigint;
   tokens: TokenBalance[];
   loadingTokens: boolean;
-  lastUpdateDate: string;
+  lastUpdateTimestamp: number;
   sumUnspentEthUsd: number;
 }>();
 
@@ -53,7 +58,7 @@ const handleCopy = (event: Event, text: string) => {
       <b>Favorite Addresses</b>
       <div class="update-btn-wrapper">
         <span class="last-update">
-          {{ lastUpdateDate }}
+          {{ lastUpdateTimestamp > 0 ? formatTimestampLocalWithoutYear(lastUpdateTimestamp) : '' }}
         </span>
         <button @click="handleUpdateData" class="btn btn-dark update-btn">
           <i class="bi bi-arrow-clockwise"></i> Update

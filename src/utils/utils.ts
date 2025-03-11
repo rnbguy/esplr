@@ -72,6 +72,10 @@ export const passedSecondsFrom = (milliseconds: number) => {
   return Math.floor((Date.now() - milliseconds) / 1000);
 };
 
+export const hasMinutesPassed = (pastTimestamp: number, minutes: number) => {
+  return Date.now() - pastTimestamp > minutes * 60 * 1000
+};
+
 export const getTransactionMethodName = (
   transaction: OtsSearchTransaction | TxInfo,
   type: string | null = null
