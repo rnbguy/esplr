@@ -3,12 +3,17 @@ import { onMounted, ref, inject, type Ref, watch } from 'vue';
 import { Web3Provider, Chainlink } from 'micro-eth-signer/net';
 import type { BlockInfo } from 'node_modules/micro-eth-signer/net/archive';
 
-import { APP_DESC } from '@/config';
+import { APP_DESC, CACHE_INTERVAL_MINUTES } from '@/config';
 import { useSettingsStore } from '@/stores/settings';
 import { AddressCache } from '@/cache';
 import { MainPageCache } from '@/cache/mainPage';
 import type { TxInfoExtended, OtsSearchTransactionExtended } from '@/types';
-import { currentDateLocalWithoutYear, fromWeiToGwei, roundToTwo } from '@/utils/utils';
+import {
+  fromWeiToGwei,
+  roundToTwo,
+  hasMinutesPassed,
+  formatTimestampLocalWithoutYear,
+} from '@/utils/utils';
 import {
   getGasPriceWei,
   getLastBlocksBefore,
@@ -26,7 +31,7 @@ const gasPriceGwei = ref('');
 const maxPriorityFeeGwei = ref('');
 const lastBlocks = ref<BlockInfo[]>([]);
 const lastTxns = ref<TxInfoExtended[]>([]);
-const lastUpdateDate = ref('');
+const updatedTimestamp = ref(Date.now());
 const ethPrice = ref(0);
 
 const LAST_BLOCKS_COUNT = 5;
@@ -50,28 +55,17 @@ watch(provider, (newProvider) => {
 });
 
 onMounted(async () => {
-  updateRequested = true;
   mount();
 });
 
 const mount = async () => {
-  loadingData.value = true;
-
-  if (mainDataCache.hasData()) {
-    gasPriceGwei.value = mainDataCache.getGasPriceGwei();
-    favoriteAddresses.value = mainDataCache.getFavoriteAddresses();
-    favoriteTxns.value = mainDataCache.getFavoriteTxns();
-    lastBlocks.value = mainDataCache.getLastBlocks();
-    lastTxns.value = mainDataCache.getLastTxns();
-    lastUpdateDate.value = mainDataCache.getLastUpdateDate();
-    ethPrice.value = mainDataCache.getEthPrice();
-    maxPriorityFeeGwei.value = mainDataCache.getMaxPriorityFeeGwei();
+  const lastUpdateTimestamp = mainDataCache.getLastUpdateTimestamp();
+  const timeToUpdate = hasMinutesPassed(lastUpdateTimestamp, CACHE_INTERVAL_MINUTES);
+  if (mainDataCache.hasData() && !timeToUpdate && !updateRequested) {
+    return laodDataFromCache();
   }
 
-  if (!updateRequested) {
-    loadingData.value = false;
-    return;
-  }
+  setLoadingData(true);
 
   const newLastBlockNum = await prov.value.height();
   const gasPriceWei = await getGasPriceWei(prov.value as Web3Provider);
@@ -102,7 +96,6 @@ const mount = async () => {
     newLastBlocks,
     LAST_TXNS_COUNT
   );
-  const newLastUpdateDate = currentDateLocalWithoutYear();
 
   // apply all new values at once to avoid flickering
   gasPriceGwei.value = newGasPriceGwei;
@@ -110,20 +103,24 @@ const mount = async () => {
   favoriteTxns.value = newFavoriteTxns;
   lastBlocks.value = newLastBlocks;
   lastTxns.value = newLastTxns;
-  lastUpdateDate.value = newLastUpdateDate;
   maxPriorityFeeGwei.value = newMaxPriorityFeeGwei;
+  updatedTimestamp.value = Date.now();
 
   mainDataCache.setGasPriceGwei(newGasPriceGwei);
   mainDataCache.setFavoriteAddresses(newFavoriteAddresses);
   mainDataCache.setFavoriteTxns(newFavoriteTxns);
   mainDataCache.setLastBlocks(newLastBlocks);
   mainDataCache.setLastTxns(newLastTxns);
-  mainDataCache.setLastUpdateDate(newLastUpdateDate);
-  mainDataCache.setEthPrice(ethPrice.value);
   mainDataCache.setMaxPriorityFeeGwei(newMaxPriorityFeeGwei);
+  mainDataCache.setEthPrice(ethPrice.value);
+  mainDataCache.setLastUpdateTimestamp(updatedTimestamp.value);
 
   updateRequested = false;
-  loadingData.value = false;
+  setLoadingData(false);
+};
+
+const setLoadingData = (loading: boolean) => {
+  loadingData.value = loading;
 };
 
 const remount = async (provider: Web3Provider) => {
@@ -135,6 +132,17 @@ const remount = async (provider: Web3Provider) => {
 const handleUpdateData = async () => {
   updateRequested = true;
   await mount();
+};
+
+const laodDataFromCache = () => {
+  gasPriceGwei.value = mainDataCache.getGasPriceGwei();
+  favoriteAddresses.value = mainDataCache.getFavoriteAddresses();
+  favoriteTxns.value = mainDataCache.getFavoriteTxns();
+  lastBlocks.value = mainDataCache.getLastBlocks();
+  lastTxns.value = mainDataCache.getLastTxns();
+  maxPriorityFeeGwei.value = mainDataCache.getMaxPriorityFeeGwei();
+  ethPrice.value = mainDataCache.getEthPrice();
+  updatedTimestamp.value = mainDataCache.getLastUpdateTimestamp();
 };
 </script>
 
@@ -153,7 +161,7 @@ const handleUpdateData = async () => {
         <i class="bi bi-arrow-clockwise"></i> Update
       </button>
       <div class="last-update">
-        {{ lastUpdateDate }}
+        {{ formatTimestampLocalWithoutYear(updatedTimestamp) }}
       </div>
     </div>
   </div>

@@ -2,7 +2,7 @@ import type { OtsSearchTransactionExtended, TxInfoExtended } from '@/types';
 import type { BlockInfo } from 'node_modules/micro-eth-signer/net/archive';
 
 export class MainPageCache {
-  private static instance: MainPageCache;
+  private static instance: MainPageCache = new MainPageCache();
 
   private constructor() {}
 
@@ -12,14 +12,10 @@ export class MainPageCache {
   private favoriteTxns = <OtsSearchTransactionExtended[]>[];
   private lastBlocks = <BlockInfo[]>[];
   private lastTxns = <TxInfoExtended[]>[];
-  private lastUpdateDate = '';
   private ethPrice = 0;
+  private lastUpdateTimestamp = 0;
 
   static getInstance(): MainPageCache {
-    if (!MainPageCache.instance) {
-      MainPageCache.instance = new MainPageCache();
-    }
-
     return MainPageCache.instance;
   }
 
@@ -30,7 +26,7 @@ export class MainPageCache {
       this.maxPriorityFeeGwei !== '' &&
       this.lastBlocks.length !== 0 &&
       this.lastTxns.length !== 0 &&
-      this.lastUpdateDate !== ''
+      this.lastUpdateTimestamp !== 0
     );
   }
 
@@ -78,17 +74,17 @@ export class MainPageCache {
     return this.lastTxns;
   }
 
-  setLastUpdateDate(lastUpdateDate: string): void {
-    this.lastUpdateDate = lastUpdateDate;
-  }
-  getLastUpdateDate(): string {
-    return this.lastUpdateDate;
-  }
-
   setMaxPriorityFeeGwei(maxPriorityFeeGwei: string): void {
     this.maxPriorityFeeGwei = maxPriorityFeeGwei;
   }
   getMaxPriorityFeeGwei(): string {
     return this.maxPriorityFeeGwei;
+  }
+
+  setLastUpdateTimestamp(timestamp: number): void {
+    this.lastUpdateTimestamp = timestamp;
+  }
+  getLastUpdateTimestamp(): number {
+    return this.lastUpdateTimestamp;
   }
 }
