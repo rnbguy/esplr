@@ -9,7 +9,9 @@ import {
   shortenAddr,
   getTransferValue,
   fromWeiToEth,
+  concatTransfers,
 } from '@/utils/utils';
+import { getTokenTransfersForTxn } from '@/utils/network';
 
 const route = useRoute();
 const provider = inject<Ref<Web3Provider>>('provider');
@@ -59,11 +61,12 @@ watch(
 
 const mount = async (tx: string) => {
   isLoadingTxnBaseInfo.value = true;
-
   transactionHash.value = tx;
+
   const txn = await prov.txInfo(tx);
   txnInfo.value = txn;
-  const { hash, from, blockNumber } = txn.info;
+
+  const { hash, from, to, blockNumber } = txn.info;
   const blockDetails = await prov.blockInfo(blockNumber);
 
   timestamp.value = formatTimestampLocal(blockDetails.timestamp);
@@ -74,50 +77,16 @@ const mount = async (tx: string) => {
   type.value = txn.type;
   nonce.value = txn.info.nonce;
   transactionIndex.value = txn.info.transactionIndex;
-
   isLoadingTxnBaseInfo.value = false;
 
   isLoadingTxnTokenTransfers.value = true;
-  const fromAddrTransfers = await getTransfersForTxn(hash, from, blockNumber);
-  netTransfers.value = [...fromAddrTransfers];
+  const [fromAddrTransfers, toAddrTransfers] = await Promise.all([
+    getTokenTransfersForTxn(prov, hash, from, blockNumber),
+    to ? getTokenTransfersForTxn(prov, hash, to, blockNumber) : Promise.resolve([]),
+  ]);
+
+  netTransfers.value = concatTransfers(fromAddrTransfers, toAddrTransfers);
   isLoadingTxnTokenTransfers.value = false;
-};
-
-const getTransfersForTxn = async (
-  hash: string,
-  addr: string,
-  block: number
-): Promise<NetTransfer[]> => {
-  const txnTransfers = (
-    await prov.transfers(addr, {
-      fromBlock: block,
-      toBlock: block,
-    })
-  ).filter((t) => t.hash === hash);
-  const tokenTransfers = txnTransfers.length ? txnTransfers[0].tokenTransfers : [];
-  if (tokenTransfers.length) {
-    const addresses = new Set<string>();
-    const hasAddress = tokenTransfers.some((t) => t.from === addr || t.to === addr);
-    if (hasAddress) {
-      addresses.add(addr);
-    }
-    tokenTransfers.forEach((t) => {
-      addresses.add(t.from);
-      addresses.add(t.to);
-    });
-
-    const erc20NetTransfers: NetTransfer[] = [];
-    addresses.forEach((addr) => {
-      tokenTransfers.forEach((tt) => {
-        if (tt.from === addr) erc20NetTransfers.push({ addr, type: 'sent', transfer: tt });
-      });
-      tokenTransfers.forEach((tt) => {
-        if (tt.to === addr) erc20NetTransfers.push({ addr, type: 'received', transfer: tt });
-      });
-    });
-    return erc20NetTransfers;
-  }
-  return [];
 };
 </script>
 
@@ -162,24 +131,34 @@ const getTransfersForTxn = async (
     <div class="field">
       <div class="field-title">From:</div>
       <div v-if="!isLoadingTxnBaseInfo && txnInfo" class="tx-hash">
-        <RouterLink class="link txn-hash-link" :to="`/address/${txnInfo.info.from}`">
+        <RouterLink
+          v-if="txnInfo.info.from"
+          class="link txn-hash-link"
+          :to="`/address/${txnInfo.info.from}`"
+        >
           {{ txnInfo.info.from }}
         </RouterLink>
+        <span v-else>-</span>
       </div>
     </div>
 
     <div class="field">
       <div class="field-title">Interacted With (To):</div>
       <div v-if="!isLoadingTxnBaseInfo && txnInfo" class="tx-hash">
-        <RouterLink class="link txn-hash-link" :to="`/address/${txnInfo.info.to}`">
+        <RouterLink
+          v-if="txnInfo.info.to"
+          class="link txn-hash-link"
+          :to="`/address/${txnInfo.info.to}`"
+        >
           {{ txnInfo.info.to }}
         </RouterLink>
+        <span v-else>-</span>
       </div>
     </div>
 
     <div class="field">
       <div class="field-title">Transaction Action:</div>
-      <div v-if="!isLoadingTxnBaseInfo" class="label">{{ action }}</div>
+      <div v-if="!isLoadingTxnBaseInfo" :class="[{ label: action.length > 1 }]">{{ action }}</div>
     </div>
 
     <div class="field transfers-block">
@@ -187,9 +166,10 @@ const getTransfersForTxn = async (
       <div v-if="netTransfers.length && !isLoadingTxnTokenTransfers" class="net-transfers">
         <div class="token-transfer" v-for="t in netTransfers" :key="t.addr">
           <span class="tx-hash shortenAddr">
-            <RouterLink class="link txn-hash-link" :to="`/address/${t.addr}`">
+            <RouterLink v-if="t.addr" class="link txn-hash-link" :to="`/address/${t.addr}`">
               {{ shortenAddr(t.addr) }}
             </RouterLink>
+            <span v-else>-</span>
           </span>
           <span class="tx-type">{{ t.type }}</span>
           <span class="tx-value">

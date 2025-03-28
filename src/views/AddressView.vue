@@ -2,10 +2,13 @@
 import { onMounted, inject, watch, ref, type Ref, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import { Web3Provider, Chainlink } from 'micro-eth-signer/net';
-import { TOKENS } from 'micro-eth-signer/abi';
-import type { Unspent } from 'node_modules/micro-eth-signer/net/archive';
 import { CACHE_INTERVAL_MINUTES } from '@/config';
-import { getUnspent, getERC20TokenInfo, loadTokenInfoByBalances } from '@/utils/network';
+import { ETH_DECIMALS } from '@/constants';
+import {
+  getERC20TokenInfo,
+  loadTokenInfoByBalances,
+  getPositiveTokenBalances,
+} from '@/utils/network';
 import { transfersToTxnsList, usdBalance, hasMinutesPassed } from '@/utils/utils';
 import type {
   ERC20TokenInfo,
@@ -13,6 +16,7 @@ import type {
   TokenBalance,
   OtsGetContractCreatorResponse,
   FavoriteAddress,
+  UnspentWithUsd,
 } from '@/types';
 import AddressHeader from '@/components/address-view/AddressHeader.vue';
 import FavoritesHeader from '@/components/address-view/FavoritesHeader.vue';
@@ -21,7 +25,6 @@ import TransactionsList from '@/components/address-view/TransactionsList.vue';
 import { useSettingsStore } from '@/stores/settings';
 import { useAppStore } from '@/stores/app';
 import { AddressCache } from '@/cache';
-import { Pagination } from '@/views/Pagination';
 import { DetailsPagination } from '@/views/DetailsPagination';
 import { FavoritesPagination } from '@/views/FavoritesPagination';
 
@@ -36,13 +39,13 @@ const appStore = useAppStore();
 const SHOW_TXNS_LIMIT = 25;
 
 const address = ref('');
-const unspent = ref<Unspent | null>(null);
 const loadingTxns = ref(false);
 const transactionsList = ref<TransactionListItem[][]>([]);
-const unspentEthUsd = ref(0);
 
+/* single address */
 const tokenCreator = ref<OtsGetContractCreatorResponse | null>(null);
 const tokenInfo = ref<ERC20TokenInfo | null>(null);
+/* single address */
 
 const loadingTokens = ref(false);
 const tokens = ref<TokenBalance[]>([]);
@@ -53,11 +56,7 @@ const loadingPage = ref(false);
 
 const cache = AddressCache.getInstance();
 let updateTokenTransfersRequested = false;
-let updateInternalTransactionsRequested = false;
-let updateRequested = false;
-// let updateFavoritesTransactionsRequested = false
 
-const pagination = Pagination.getInstance(prov, SHOW_TXNS_LIMIT);
 const detailsPagination = DetailsPagination.getInstance(prov, SHOW_TXNS_LIMIT);
 const favoritesPagination = FavoritesPagination.getInstance(prov, SHOW_TXNS_LIMIT, cache);
 const isFirstPage = ref(true);
@@ -65,10 +64,12 @@ const isLastPage = ref(false);
 const currentPage = ref(1);
 
 const isFavorites = computed(() => route.name === 'favorites');
-const sumUnspent = ref(0n);
+const favorites = ref<FavoriteAddress[]>([]);
+
+const sumUnspentTxns = ref(0n);
 const sumBalance = ref(0n);
 const sumUnspentEthUsd = ref(0);
-const favoritesWithDetails = ref<FavoriteAddress[]>([]);
+const loadingUnspent = ref(false);
 
 const showErigonTokensWarning = ref(false);
 const showErigonPricesWarning = ref(false);
@@ -79,90 +80,85 @@ watch(
   () => route.params.address,
   async (newAddress) => {
     setTab('internal');
-    await mountOrUpdate(newAddress as string);
+    await mountOrUpdate([newAddress as string]);
   }
 );
 
 const clearState = () => {
   address.value = '';
-  unspent.value = null;
   transactionsList.value = [];
   tokenCreator.value = null;
   tokenInfo.value = null;
   tokens.value = [];
+  warning.value = '';
+  sumUnspentTxns.value = 0n;
+  sumBalance.value = 0n;
+  sumUnspentEthUsd.value = 0;
+  favorites.value = [];
+};
+
+const showOfflineNotice = () => {
+  warning.value = 'No internet connection. Please check your network settings.';
+  setTimeout(() => {
+    warning.value = '';
+  }, 7000);
 };
 
 onMounted(async () => {
-  if (isFavorites.value) {
-    await mountFavorites();
-  } else {
-    await mountOrUpdate(route.params.address as string);
-  }
+  const addresses = isFavorites.value
+    ? Array.from(cache.getFavoriteAddresses())
+    : [route.params.address as string];
+  await mountOrUpdate(addresses);
 });
 
-const mountOrUpdate = async (addr: string) => {
-  if (cache.hasUpdatedAtTimestamp(addr) && window.navigator.onLine) {
-    const lastUpdateTimestamp = cache.getUpdatedAtTimestamp(addr);
+const mountOrUpdate = async (addresses: string[]) => {
+  const online = window.navigator.onLine;
+  if (!online) showOfflineNotice();
+
+  if (cache.hasUpdatedAtTimestampForEveryAddress(addresses) && online) {
+    const lastUpdateTimestamp = cache.getLowestUpdatedAtTimestampForAddresses(addresses);
     if (hasMinutesPassed(lastUpdateTimestamp, CACHE_INTERVAL_MINUTES)) {
-      address.value = addr;
-      await updateData();
+      await updateData(addresses);
       return;
     }
   }
 
-  if (!window.navigator.onLine) {
-    warning.value = 'No internet connection. Please check your network settings.';
-    setTimeout(() => {
-      warning.value = '';
-    }, 7000);
-  }
-
-  await mount(addr);
+  await mount(addresses);
 };
 
-const updateData = async () => {
+const updateData = async (addresses: string[]) => {
   if (!window.navigator.onLine) {
-    warning.value = 'No internet connection. Please check your network settings.';
-    setTimeout(() => {
-      warning.value = '';
-    }, 7000);
+    showOfflineNotice();
     return;
   }
 
-  cache.clearAddressForUpdate(address.value);
-  setUpdatingStatus();
-  if (isFavorites.value) {
-    // updateFavoritesTransactionsRequested = true
-    cache.clearInternalTransactionsFavorites();
-    await mountFavorites();
-  } else {
-    await mount(address.value);
+  cache.clearAddressesForUpdate(addresses);
+  if (!isFavorites.value) {
+    setUpdatingAddressStatus();
   }
+
+  await mount(addresses);
 };
 
-const setUpdatingStatus = () => {
-  updateRequested = true;
-  updateInternalTransactionsRequested = true;
+const setUpdatingAddressStatus = () => {
   updateTokenTransfersRequested = true;
 };
 
-const mountFavorites = async () => {
+const mount = async (addresses: string[]) => {
   clearState();
 
-  setLoadingTokens(true);
-  setLoadingTxns(true);
-
   const pageDataPromises = [];
+  address.value = addresses[0];
 
-  const addresses = Array.from(cache.getFavoriteAddresses());
-  const unspentPromise = loadUnspentAddresses(addresses);
+  const unspentPromise = loadUnspentWithContractDetails(addresses);
   pageDataPromises.push(unspentPromise);
 
   let txnsPromise = null;
   if (activeTab.value === 'internal') {
     txnsPromise = loadAddressesTransactions(addresses);
   } else if (activeTab.value === 'details') {
-    // TODO: loading transfers for favorites will be here
+    // TODO: make loading transfers for favorites too, not only for single address
+    txnsPromise = loadTransfers(addresses[0]);
   }
   pageDataPromises.push(txnsPromise);
 
@@ -170,265 +166,236 @@ const mountFavorites = async () => {
   pageDataPromises.push(tokensPromise);
 
   await Promise.all(pageDataPromises);
-  lastUpdateTimestamp.value = Date.now();
+  refreshUpdatedAt(addresses);
 };
 
-const mount = async (addr: string) => {
-  clearState();
-
-  setLoadingTokens(true);
-  setLoadingTxns(true);
-
-  const pageDataPromises = [];
-
-  const contractCreatorPromise = loadAddressContractCreatorWithInfo(addr);
-  pageDataPromises.push(contractCreatorPromise);
-
-  address.value = addr;
-  const unspentPromise = loadUnspent(addr);
-  pageDataPromises.push(unspentPromise);
-
-  let txnsPromise = null;
-  if (activeTab.value === 'internal') {
-    txnsPromise = loadAddressTransactions(addr);
-  } else if (activeTab.value === 'details') {
-    txnsPromise = loadTransfers(addr);
-  }
-  pageDataPromises.push(txnsPromise);
-
-  const tokensPromise = loadAddressTokens(addr);
-  pageDataPromises.push(tokensPromise);
-
-  await Promise.all(pageDataPromises);
-  if (cache.hasUpdatedAtTimestamp(addr) && !updateRequested) {
-    lastUpdateTimestamp.value = cache.getUpdatedAtTimestamp(addr);
+const refreshUpdatedAt = (addresses: string[]) => {
+  if (cache.hasUpdatedAtTimestampForEveryAddress(addresses)) {
+    lastUpdateTimestamp.value = cache.getLowestUpdatedAtTimestampForAddresses(addresses);
   } else {
-    lastUpdateTimestamp.value = Date.now();
-    cache.setUpdatedAtTimestamp(addr, lastUpdateTimestamp.value);
+    const timestamp = Date.now();
+    lastUpdateTimestamp.value = timestamp;
+    cache.setUpdatedAtTimestampForAddresses(addresses, timestamp);
   }
+};
 
-  updateRequested = false;
+const injectUsdToUnspent = async (unspent: UnspentWithUsd) => {
+  const link = new Chainlink(prov);
+  const usdTokenPrice = await link.coinPrice('ETH');
+  unspent.usdBalance = usdBalance(unspent.balance, ETH_DECIMALS, usdTokenPrice);
 };
 
 const getAddrUnspent = async (address: string) => {
+  // cache.removeUnspent(address);
   if (cache.hasUnspent(address)) {
-    // console.log('used cached unspent')
-    return cache.getUnspent(address) ?? null;
+    const unspent = cache.getUnspent(address) ?? null;
+    if (settingsStore.showUsdPrices && unspent && !unspent.usdBalance) {
+      await injectUsdToUnspent(unspent);
+      cache.addUnspent(address, unspent);
+    }
+    return unspent;
   }
-  const result = await getUnspent(prov, address);
-  cache.addUnspent(address, result);
-  return result;
+
+  const unspent = (await prov.unspent(address)) as UnspentWithUsd;
+  if (settingsStore.showUsdPrices && unspent) {
+    await injectUsdToUnspent(unspent);
+  }
+  cache.addUnspent(address, unspent);
+  return unspent;
 };
 
-const loadUnspent = async (address: string) => {
-  unspent.value = await getAddrUnspent(address);
-  if (settingsStore.showUsdPrices) {
-    if (cache.hasUnspentEthUsd(address)) {
-      unspentEthUsd.value = cache.getUnspentEthUsd(address) ?? 0;
-      return;
-    }
-    let usdTokenPrice = null;
-    try {
-      const link = new Chainlink(prov);
-      usdTokenPrice = await link.coinPrice('ETH');
-    } catch (error) {
-      // console.error('Token price loading error:');
-      // console.error('error', error);
-      showErigonPricesWarning.value = true;
-      return;
-    }
-    showErigonPricesWarning.value = false;
-    const balance = unspent.value?.balance ?? 0n;
-    const ethDecimals = 18;
-    const usd = usdBalance(balance, ethDecimals, usdTokenPrice);
-    cache.setUnspentEthUsd(address, usd);
-    unspentEthUsd.value = usd;
-  }
-};
-
-const loadUnspentAddresses = async (addresses: string[]) => {
-  const markedAddresses = await Promise.all(
-    addresses.map(async (addr: string) => {
-      return { address: addr, creator: await getContractCreator(addr) };
-    })
-  );
+const loadUnspentWithContractDetails = async (addresses: string[]) => {
+  setLoadingUnspent(true);
 
   const allUnspent = await Promise.all(
-    markedAddresses.map(async (addr) => {
+    addresses.map(async (address: string) => {
+      const [contractCreator, unspent] = await Promise.all([
+        getContractCreator(address),
+        getAddrUnspent(address),
+      ]);
       return {
-        address: addr.address,
-        type: addr.creator ? 'contract' : 'user',
-        unspent: await getAddrUnspent(addr.address),
+        address,
+        contractCreator,
+        unspent,
       };
     })
   );
 
-  favoritesWithDetails.value = allUnspent;
+  if (isFavorites.value) {
+    favorites.value = allUnspent;
+  } else {
+    const { contractCreator, address } = allUnspent[0];
+    if (contractCreator) {
+      tokenInfo.value = await getTokenInfo(address);
+      tokenCreator.value = contractCreator;
+    }
+  }
 
   // TODO: check that worked correctly after adding possibility to add contract addresses to favorites
-  const userUnspent = allUnspent.filter((i) => i.type === 'user');
-  sumUnspent.value = userUnspent.reduce((acc, curr: { unspent: Unspent | null }) => {
+  const userUnspent = allUnspent.filter((i) => !i.contractCreator);
+  sumUnspentTxns.value = userUnspent.reduce((acc, curr: { unspent: UnspentWithUsd | null }) => {
     if (!curr.unspent) return acc;
     return acc + BigInt(curr.unspent.nonce);
   }, 0n);
 
-  sumBalance.value = allUnspent.reduce((acc, curr: { unspent: Unspent | null }) => {
+  sumBalance.value = allUnspent.reduce((acc, curr: { unspent: UnspentWithUsd | null }) => {
     if (!curr.unspent) return acc;
     return acc + BigInt(curr.unspent.balance);
   }, 0n);
 
-  if (settingsStore.showUsdPrices) {
-    const link = new Chainlink(prov);
-    const usdTokenPrice = await link.coinPrice('ETH');
-    const balance = sumBalance.value;
-    const ethDecimals = 18;
-    const usd = usdBalance(balance, ethDecimals, usdTokenPrice);
-    sumUnspentEthUsd.value = usd;
-  }
+  sumUnspentEthUsd.value = allUnspent.reduce((acc, curr: { unspent: UnspentWithUsd | null }) => {
+    if (!curr.unspent) return acc;
+    return acc + (curr.unspent.usdBalance ?? 0);
+  }, 0);
+
+  setLoadingUnspent(false);
 };
 
 const getContractCreator = async (address: string) => {
-  let creator = null;
+  // cache.removeTokenCreator(address);
   if (cache.hasTokenCreator(address)) {
-    creator = cache.getTokenCreator(address) ?? null;
-  } else {
-    creator = await prov.call('ots_getContractCreator', address);
-    cache.addTokenCreator(address, creator);
+    return cache.getTokenCreator(address) ?? null;
   }
-  if (!creator) return null;
-  return creator;
+  const creator = await prov.call('ots_getContractCreator', address);
+  cache.addTokenCreator(address, creator);
+  return creator ? creator : null;
 };
 
-const loadAddressContractCreatorWithInfo = async (address: string) => {
-  const creator = await getContractCreator(address);
-  if (!creator) return null;
-
-  let tInfo = null;
+const getTokenInfo = async (address: string) => {
   if (cache.hasTokenInfo(address)) {
-    tInfo = cache.getTokenInfo(address) ?? null;
-  } else {
-    tInfo = await getERC20TokenInfo(prov, address);
-    cache.addTokenInfo(address, tInfo);
+    return cache.getTokenInfo(address) ?? null;
   }
-
-  tokenInfo.value = tInfo;
-  tokenCreator.value = creator;
+  const info = await getERC20TokenInfo(prov, address);
+  cache.addTokenInfo(address, info);
+  return info;
 };
 
 const loadAddressesTransactions = async (addresses: string[]) => {
   setTab('internal');
   setLoadingTxns(true);
 
-  // TODO: fix caching, when new address was added to favorites
-  const cachedTxns = null;
-  // if (
-  //   cache.hasInternalTransactionsAddressFavorites() &&
-  //   !updateFavoritesTransactionsRequested
-  // ) {
-  //   const cached = cache.getInternalTransactionsFavorites() ?? []
-  //   cachedTxns = cached.length ? cached : null
-  // }
+  let cachedTxns: TransactionListItem[][] = [];
+  if (cache.hasInternalTransactionsForEveryAddress(addresses)) {
+    const cached = cache.getInternalTransactionsForAddresses(addresses);
+    for (const [, txns] of cached) {
+      cachedTxns = cachedTxns.concat(txns);
+    }
+  }
 
-  const txnsToShow = await favoritesPagination.showFirstPage(addresses, cachedTxns);
-  transactionsList.value = txnsToShow;
-
-  // cache.addInternalTransactionsFavorites(
-  //   favoritesPagination.currentPageTxns.concat(favoritesPagination.nextPageReminder),
-  // )
-
+  transactionsList.value = await favoritesPagination.showFirstPage(addresses, cachedTxns);
+  // TODO: make caching for favorites too
+  if (!isFavorites.value) {
+    cache.addInternalTransactions(
+      addresses[0],
+      favoritesPagination.currentPageTxns.concat(favoritesPagination.nextPageReminder)
+    );
+  }
   updatePagesState(favoritesPagination);
-  // updateFavoritesTransactionsRequested = false
+
   setLoadingTxns(false);
-};
-
-const loadAddressTransactions = async (address: string) => {
-  setTab('internal');
-  setLoadingTxns(true);
-
-  let cachedTxns = null;
-  if (cache.hasInternalTransactionsAddress(address) && !updateInternalTransactionsRequested) {
-    const cached = cache.getInternalTransactions(address) ?? [];
-    cachedTxns = cached.length ? cached : null;
-  }
-
-  let txnsToShow = null;
-  try {
-    txnsToShow = await pagination.showFirstPage(address, cachedTxns);
-  } catch (error) {
-    // console.error('Transactions loading error:');
-    // console.error('error', error);
-    setLoadingTxns(false);
-    updateInternalTransactionsRequested = false;
-    showErigonInternalTxnsWarning.value = true;
-    return;
-  }
-  showErigonInternalTxnsWarning.value = false;
-
-  transactionsList.value = txnsToShow;
-
-  cache.addInternalTransactions(
-    address,
-    pagination.currentPageTxns.concat(pagination.nextPageReminder)
-  );
-
-  updatePagesState(pagination);
-  updateInternalTransactionsRequested = false;
-  setLoadingTxns(false);
-};
-
-const getPositiveTokenBalances = async (prov: Web3Provider, address: string) => {
-  const balances = await prov.tokenBalances(address, Object.keys(TOKENS));
-  const positiveBalances = Object.fromEntries(
-    Object.entries(balances).filter(([, balance]) => {
-      // @ts-expect-error: balance might not be a Map if there is TokenError instead
-      return balance instanceof Map && balance?.get(1n) > 0n;
-    })
-  );
-  return positiveBalances;
 };
 
 const loadAddressesTokens = async (addresses: string[]) => {
   setLoadingTokens(true);
 
-  let results = null;
-  try {
-    if (!appStore.isErigon) {
-      throw new Error('Only Erigon RPC is supported for token balances.');
+  if (cache.hasTokensForEveryAddress(addresses)) {
+    const cached = cache.getTokensForAddresses(addresses);
+
+    // load tokens prices, if price for some of them is missing
+    if (settingsStore.showUsdPrices) {
+      let allHasPrice = true;
+      for (const [, tokens] of cached) {
+        allHasPrice = tokens.every((t) => t.usd);
+        if (!allHasPrice) break;
+      }
+
+      if (!allHasPrice) {
+        const cachedWithUsd = await injectUsdPricesToTokenBalances(cached);
+        for (const [addr, tokens] of cachedWithUsd) {
+          cache.addTokens(addr, tokens);
+        }
+      }
     }
-    results = await Promise.all(
-      addresses.map(async (addr) => {
-        const positiveBalances = await getPositiveTokenBalances(prov, addr);
-        return await loadTokenInfoByBalances(prov, positiveBalances);
-      })
-    );
-  } catch (error) {
-    // console.error('Balances loading error:')
-    // console.error('error', error);
+
+    const updatedCache = cache.getTokensForAddresses(addresses);
+    tokens.value = caclculateTokensSumBalances(updatedCache);
     setLoadingTokens(false);
-    showErigonTokensWarning.value = true;
     return;
   }
-  showErigonTokensWarning.value = false;
 
-  const allTokens = results.flat();
+  const results = await Promise.all(
+    addresses.map(async (addr) => {
+      const positiveBalances = await getPositiveTokenBalances(prov, addr);
+      const results = await loadTokenInfoByBalances(prov, positiveBalances);
+      const tokens = results.filter((item) => item.info !== null && item.balance !== null);
+      return [addr, tokens];
+    })
+  );
 
-  const allTokensSumBalances = new Map<string, TokenBalance>();
-  allTokens.forEach((t) => {
-    const existingBalance = allTokensSumBalances.get(t.token)?.balance ?? 0n;
-    const newBalance = existingBalance + (t.balance ?? 0n);
-    allTokensSumBalances.set(t.token, { ...t, balance: newBalance });
-  });
-
-  let result = Array.from(allTokensSumBalances.values());
-  if (settingsStore.showUsdPrices) {
-    result = await injectUsdPriceToTokenBalances(result);
+  let resultsMap = new Map<string, TokenBalance[]>();
+  for (const [addr, tokens] of results) {
+    resultsMap.set(addr as string, tokens as TokenBalance[]);
   }
-  tokens.value = result;
+  if (settingsStore.showUsdPrices) {
+    resultsMap = await injectUsdPricesToTokenBalances(resultsMap);
+  }
 
+  for (const [addr, tokens] of resultsMap) {
+    cache.addTokens(addr, tokens);
+  }
+
+  tokens.value = caclculateTokensSumBalances(resultsMap);
   setLoadingTokens(false);
 };
 
-const injectUsdPriceToTokenBalances = async (tokens: TokenBalance[]): Promise<TokenBalance[]> => {
+const injectUsdPricesToTokenBalances = async (
+  tokensMap: Map<string, TokenBalance[]>
+): Promise<Map<string, TokenBalance[]>> => {
+  const resultsMap = new Map<string, TokenBalance[]>();
+  const cachedTokensPrices = new Map<string, number>();
+  for (const [addr, tokens] of tokensMap) {
+    const tokensUsd = await injectUsdPriceToTokenBalances(
+      tokens as TokenBalance[],
+      cachedTokensPrices
+    );
+    tokensUsd.forEach((t) => {
+      if (t.usd?.price && t.info?.symbol) {
+        cachedTokensPrices.set(t.info.symbol, t.usd.price);
+      }
+    });
+    resultsMap.set(addr as string, tokensUsd);
+  }
+  return resultsMap;
+};
+
+const caclculateTokensSumBalances = (tokensMap: Map<string, TokenBalance[]>): TokenBalance[] => {
+  let allAddressesTokens: TokenBalance[] = [];
+  for (const [, tokens] of tokensMap) {
+    allAddressesTokens = allAddressesTokens.concat(tokens as TokenBalance[]);
+  }
+
+  const allTokensSumBalances = new Map<string, TokenBalance>();
+  allAddressesTokens.forEach((t) => {
+    const existingBalance = allTokensSumBalances.get(t.token)?.balance ?? 0n;
+    const newBalance = existingBalance + (t.balance ?? 0n);
+
+    if (settingsStore.showUsdPrices) {
+      const existingUsdBalance = allTokensSumBalances.get(t.token)?.usd?.balance ?? 0;
+      const newUsdBalance = existingUsdBalance + (t.usd?.balance ?? 0);
+      const newUsd = { balance: newUsdBalance, price: t.usd?.price ? t.usd.price : null };
+      allTokensSumBalances.set(t.token, { ...t, balance: newBalance, usd: newUsd });
+    } else {
+      allTokensSumBalances.set(t.token, { ...t, balance: newBalance });
+    }
+  });
+
+  return Array.from(allTokensSumBalances.values());
+};
+
+const injectUsdPriceToTokenBalances = async (
+  tokens: TokenBalance[],
+  cache: Map<string, number> | null = null
+): Promise<TokenBalance[]> => {
   const link = new Chainlink(prov);
   const tokenPrices = await Promise.all(
     tokens.map(async (token) => {
@@ -439,7 +406,11 @@ const injectUsdPriceToTokenBalances = async (tokens: TokenBalance[]): Promise<To
       }
 
       if (token.info.symbol) {
-        usdTokenPrice = await link.tokenPrice(token.info.symbol);
+        if (cache && cache.has(token.info.symbol)) {
+          usdTokenPrice = cache.get(token.info.symbol) ?? 0;
+        } else {
+          usdTokenPrice = await link.tokenPrice(token.info.symbol);
+        }
       } else {
         usdTokenPrice = 0;
       }
@@ -452,47 +423,6 @@ const injectUsdPriceToTokenBalances = async (tokens: TokenBalance[]): Promise<To
     })
   );
   return tokenPrices;
-};
-
-const loadAddressTokens = async (address: string) => {
-  setLoadingTokens(true);
-
-  if (cache.hasTokenAddress(address)) {
-    let result = cache.getToken(address) ?? [];
-    const allHasPrice = result.every((t) => t.usd);
-    if (settingsStore.showUsdPrices && !allHasPrice) {
-      result = await injectUsdPriceToTokenBalances(result);
-      cache.addToken(address, result);
-    }
-    tokens.value = result;
-    setLoadingTokens(false);
-    return;
-  }
-
-  let positiveBalances = null;
-  try {
-    if (!appStore.isErigon) {
-      throw new Error('Only Erigon RPC is supported for token balances.');
-    }
-    positiveBalances = await getPositiveTokenBalances(prov, address);
-  } catch (error) {
-    // console.error('Balances loading error:')
-    // console.error('error', error);
-    setLoadingTokens(false);
-    showErigonTokensWarning.value = true;
-    return;
-  }
-  showErigonTokensWarning.value = false;
-
-  let result = await loadTokenInfoByBalances(prov, positiveBalances);
-  if (settingsStore.showUsdPrices) {
-    result = await injectUsdPriceToTokenBalances(result);
-  }
-
-  tokens.value = result;
-  cache.addToken(address, result);
-
-  setLoadingTokens(false);
 };
 
 const loadTransfers = async (address: string) => {
@@ -528,7 +458,7 @@ const loadTransfers = async (address: string) => {
         allTxns = newTxns.concat(cached);
       }
     } else {
-      const transfers = await prov.transfers(address); // { fromBlock: 21431407 })
+      const transfers = await prov.transfers(address); // { fromBlock: 21431407 }
       allTxns = transfersToTxnsList(transfers.reverse());
     }
   } catch (error) {
@@ -551,8 +481,7 @@ const loadTransfers = async (address: string) => {
 };
 
 const loadTokensTransfers = async () => {
-  if (!unspent.value) return;
-  if (unspent.value.nonce > 10000n) {
+  if (sumUnspentTxns.value > 10000n) {
     warning.value = 'Details are available for addresses with less than 10K sent transactions.';
     setTimeout(() => {
       warning.value = '';
@@ -560,22 +489,16 @@ const loadTokensTransfers = async () => {
     return;
   }
   if (!window.navigator.onLine && !cache.hasTokenTransfersTransactionsAddress(address.value)) {
-    warning.value = 'No internet connection. Please check your network settings.';
-    setTimeout(() => {
-      warning.value = '';
-    }, 7000);
+    showOfflineNotice();
     return;
   }
   await loadTransfers(address.value);
 };
 
 const loadInternalTransactions = async () => {
-  if (isFavorites.value) {
-    const addresses = Array.from(cache.getFavoriteAddresses());
-    await loadAddressesTransactions(addresses);
-  } else {
-    await loadAddressTransactions(address.value);
-  }
+  await loadAddressesTransactions(
+    isFavorites.value ? Array.from(cache.getFavoriteAddresses()) : [address.value]
+  );
 };
 
 const setLoadingTxns = (loading: boolean) => {
@@ -584,6 +507,10 @@ const setLoadingTxns = (loading: boolean) => {
 
 const setLoadingTokens = (loading: boolean) => {
   loadingTokens.value = loading;
+};
+
+const setLoadingUnspent = (loading: boolean) => {
+  loadingUnspent.value = loading;
 };
 
 const setTab = (tab: string) => {
@@ -595,14 +522,14 @@ const openPage = async (page: string) => {
   loadingPage.value = true;
 
   let newList: TransactionListItem[][] = [];
-  let paginate: Pagination | DetailsPagination | FavoritesPagination;
+  let paginate: DetailsPagination | FavoritesPagination;
   let addressSource: string | string[];
 
-  if (isFavorites.value) {
+  if (activeTab.value === 'internal') {
     paginate = favoritesPagination;
-    addressSource = Array.from(cache.getFavoriteAddresses());
+    addressSource = isFavorites.value ? Array.from(cache.getFavoriteAddresses()) : [address.value];
   } else {
-    paginate = activeTab.value === 'internal' ? pagination : detailsPagination;
+    paginate = detailsPagination;
     addressSource = address.value;
   }
 
@@ -624,21 +551,15 @@ const openPage = async (page: string) => {
   loadingPage.value = false;
 };
 
-const updatePagesState = (pagination: Pagination | DetailsPagination | FavoritesPagination) => {
-  // console.log('pagination.firstPage', pagination.firstPage)
-  // console.log('pagination.lastPage', pagination.lastPage)
-  // console.log('pagination.page', pagination.page)
-  // console.log('pagination.prevPageReminder', pagination.prevPageReminder)
-  // console.log('pagination.prevPageReminder', pagination.nextPageRE)
+const updatePagesState = (pagination: DetailsPagination | FavoritesPagination) => {
   isFirstPage.value = pagination.firstPage;
   isLastPage.value = pagination.lastPage;
   currentPage.value = pagination.page;
 };
 
 const deleteFavorite = async (address: string) => {
-  cache.clearInternalTransactionsFavorites();
   cache.removeFavoriteAddress(address);
-  await mountFavorites();
+  await mount(Array.from(cache.getFavoriteAddresses()));
 };
 </script>
 
@@ -646,30 +567,32 @@ const deleteFavorite = async (address: string) => {
   <AddressHeader
     v-if="!isFavorites"
     :address="address"
-    :unspent="unspent"
+    :sumUnspentTxns="sumUnspentTxns"
+    :sumBalance="sumBalance"
+    :unspentEthUsd="sumUnspentEthUsd"
     :tokens="tokens"
     :loadingTokens="loadingTokens"
     :lastUpdateTimestamp="lastUpdateTimestamp"
-    :unspentEthUsd="unspentEthUsd"
-    @updateData="updateData"
-    :isContract="!!tokenCreator"
     :tokenCreator="tokenCreator"
     :tokenInfo="tokenInfo"
     :showErigonTokensWarning="showErigonTokensWarning"
     :showErigonPricesWarning="showErigonPricesWarning"
+    :loadingUnspent="loadingUnspent"
+    @updateData="updateData"
   />
   <FavoritesHeader
     v-if="isFavorites"
-    :unspent="sumUnspent"
-    :balance="sumBalance"
-    :favorites="favoritesWithDetails"
+    :sumUnspentTxns="sumUnspentTxns"
+    :sumBalance="sumBalance"
+    :favorites="favorites"
     :loadingTokens="loadingTokens"
     :tokens="tokens"
     :lastUpdateTimestamp="lastUpdateTimestamp"
     :sumUnspentEthUsd="sumUnspentEthUsd"
+    :showErigonTokensWarning="showErigonTokensWarning"
+    :loadingUnspent="loadingUnspent"
     @updateData="updateData"
     @deleteFavorite="deleteFavorite"
-    :showErigonTokensWarning="showErigonTokensWarning"
   />
 
   <TransactionsList
@@ -683,10 +606,10 @@ const deleteFavorite = async (address: string) => {
     :warning="warning"
     :loadingPage="loadingPage"
     :paginationOn="!isFavorites"
+    :showErigonInternalTxnsWarning="showErigonInternalTxnsWarning"
+    :showErigonDetailsTxnsWarning="showErigonDetailsTxnsWarning"
     @loadTokensTransfers="loadTokensTransfers"
     @loadInternalTransactions="loadInternalTransactions"
     @openPage="openPage"
-    :showErigonInternalTxnsWarning="showErigonInternalTxnsWarning"
-    :showErigonDetailsTxnsWarning="showErigonDetailsTxnsWarning"
   />
 </template>

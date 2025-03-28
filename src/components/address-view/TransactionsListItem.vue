@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { watchEffect, ref } from 'vue';
+import { watchEffect, ref, computed } from 'vue';
 import { shortenTx } from '@/utils/utils';
 import type { TransactionListItem } from '@/types';
 import TransactionListItemFromTo from '@/components/address-view/TransactionListItemFromTo.vue';
@@ -11,12 +11,16 @@ const props = defineProps<{
 }>();
 const txns = ref<TransactionListItem[]>([] as TransactionListItem[]);
 
+const isFirstTxnValue = computed(() => {
+  return Number(txns.value[0].value) > 0;
+});
+
 watchEffect(() => {
   txns.value = props.transactions;
 });
 
 const handleCopy = (event: Event, text: string) => {
-  const target = event.target as HTMLElement; // Ensure it's an HTMLElement
+  const target = event.target as HTMLElement;
   target.classList.remove('bi-copy');
   target.classList.add('bi-check2');
   navigator.clipboard.writeText(text);
@@ -33,7 +37,9 @@ const handleCopy = (event: Event, text: string) => {
       <div>
         <span class="block-number">#{{ txns[0].blockNumber }}</span>
         <span class="txn-date only-desktop"> {{ txns[0].date }}</span>
-        <span class="label method-label only-desktop">{{ txns[0].method }}</span>
+        <span v-if="txns[0].method.length > 1" class="label method-label only-desktop">{{
+          txns[0].method
+        }}</span>
       </div>
       <span class="txn-hash">
         <RouterLink class="link txn-hash-link" :to="`/tx/${txns[0].hash}`">
@@ -49,13 +55,20 @@ const handleCopy = (event: Event, text: string) => {
       <span class="txn-date"> {{ txns[0].date }}</span>
       <span class="label method-label">{{ txns[0].method }}</span>
     </div>
-    <div class="txns-list">
+    <div
+      :class="[
+        'txns-list',
+        {
+          'txns-list_no-scroll': txns.length === 1 || (txns.length === 2 && !isFirstTxnValue),
+        },
+      ]"
+    >
       <!-- FIRST TXN -->
       <TransactionListItemFromTo
         :isDetailsTab="isDetailsTab"
         :address="address"
         :txn="txns[0]"
-        v-if="Number(txns[0].value) > 0 || txns.length === 1"
+        v-if="isFirstTxnValue || txns.length === 1"
       />
       <!-- REST TXNS -->
       <TransactionListItemFromTo
@@ -134,6 +147,10 @@ const handleCopy = (event: Event, text: string) => {
   margin-top: 5px;
   border: 1px solid var(--ash-grey);
   border-radius: var(--std-radius);
+}
+
+.txns-list_no-scroll {
+  overflow-y: hidden;
 }
 
 .txn-details {

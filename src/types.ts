@@ -1,4 +1,4 @@
-import type { TxInfo, Unspent } from 'node_modules/micro-eth-signer/net/archive';
+import type { TxInfo, Unspent, TokenTransfer } from 'node_modules/micro-eth-signer/net/archive';
 
 export type TxInfoExtended = TxInfo & {
   blockData: {
@@ -149,6 +149,16 @@ export type TokenBalance = {
 
 export type FavoriteAddress = {
   address: string;
-  type: string;
+  contractCreator: string;
   unspent: Unspent | null;
+};
+
+export type UnspentWithUsd = Unspent & {
+  usdBalance: number | null;
+};
+
+export type NetTransfer = {
+  addr: string;
+  type: string;
+  transfer: TokenTransfer;
 };

@@ -1,15 +1,6 @@
 <script setup lang="ts">
-import { formatTimestampLocal, fromWeiToEth } from '@/utils/utils';
-import type { OtsSearchTransactionExtended } from '@/types';
-
-defineProps<{ favoriteAddresses: string[]; favoriteTxns: OtsSearchTransactionExtended[] }>();
-
-const txnShowValue = (value: string) => {
-  const wei = BigInt(value);
-  if (wei === 0n) return '0 ETH';
-  if (wei < 100000n) return `${wei} wei`;
-  return `${fromWeiToEth(wei, 18)} ETH`;
-};
+import type { TransactionListItem } from '@/types';
+defineProps<{ favoriteAddresses: string[]; favoriteTxns: TransactionListItem[][] }>();
 </script>
 
 <template>
@@ -29,35 +20,35 @@ const txnShowValue = (value: string) => {
     </ul>
 
     <div class="fav-addr">
-      <div class="block" v-for="txn in favoriteTxns" :key="txn.txn.hash">
+      <div class="block" v-for="txn in favoriteTxns" :key="txn[0].hash">
         <div class="txn-info-first-part">
           <div class="txn-info">
             <div class="text-line block-box-wrapper">
               <div class="block-box"><i class="bi bi-file-earmark-text"></i></div>
-              <RouterLink class="link" :to="`/tx/${txn.txn.hash}`">
-                {{ txn.txn.hash.slice(0, 8) }}...
+              <RouterLink class="link" :to="`/tx/${txn[0].hash}`">
+                {{ txn[0].hash.slice(0, 8) }}...
               </RouterLink>
             </div>
             <div class="text-line">
-              <small>{{ formatTimestampLocal(parseInt(txn.blockData.timestamp) * 1000) }}</small>
+              <small>{{ txn[0].date }}</small>
             </div>
           </div>
           <div class="from-to">
             <div class="text-line">
               <b class="from-to-label">From</b>&nbsp;
-              <RouterLink class="link" :to="`address/${txn.txn.from}`">
-                {{ txn.txn.from.slice(0, 8) }}...
+              <RouterLink class="link" :to="`address/${txn[0].from}`">
+                {{ txn[0].from.slice(0, 8) }}...
               </RouterLink>
             </div>
             <div class="text-line">
               <b class="from-to-label">To</b>&nbsp;
-              <RouterLink class="link" :to="`address/${txn.txn.to}`">
-                {{ txn.txn.to.slice(0, 8) }}...
+              <RouterLink class="link" :to="`address/${txn[0].to}`">
+                {{ txn[0].to.slice(0, 8) }}...
               </RouterLink>
             </div>
           </div>
         </div>
-        <div class="eth">{{ txnShowValue(txn.txn.value as unknown as string) }}</div>
+        <div class="eth">{{ txn[0].value }}</div>
       </div>
       <div class="block">
         <RouterLink class="link" to="/favorites">

@@ -11,7 +11,7 @@ const remember = ref(false);
 
 onMounted(() => {
   // auto connect for development
-  // emit('connect', RPC_URL)
+  // emit('connect', RPC_URL);
 
   remember.value = isUrlInLocalStorage();
   if (remember.value) {

@@ -9,9 +9,9 @@ const pageHasParams = computed(() => Object.keys(route.params).length > 0);
 const cache = AddressCache.getInstance();
 
 const addressBreadcrumb = (address: string) => {
-  const saddr = shortenAddr(address);
+  const shortAddr = shortenAddr(address);
   const section = cache.isFavoriteAddress(address) ? 'favorites' : 'address';
-  return ` / ${section} / ${saddr}`;
+  return ` / ${section} / ${shortAddr}`;
 };
 </script>
 

@@ -4,6 +4,8 @@ import type {
   BlockInfo,
   TxReceipt,
 } from 'node_modules/micro-eth-signer/net/archive';
+import type { NetTransfer } from '@/types';
+import { TOKENS } from 'micro-eth-signer/abi';
 import { isERC20TokenInfo } from '@/utils/utils';
 
 import type {
@@ -89,10 +91,6 @@ export const getLatestTxnsWithBlockDetails = async (
   });
 };
 
-export const getUnspent = async (prov: Web3Provider, address: string) => {
-  return await prov.unspent(address);
-};
-
 export const getGasPriceWei = async (prov: Web3Provider) => {
   const gasPriceHex = await prov.call('eth_gasPrice');
   return BigInt(gasPriceHex);
@@ -103,17 +101,14 @@ export const getERC20TokenInfo = async (
   contractAddress: string
 ): Promise<ERC20TokenInfo | null> => {
   const info = await prov.tokenInfo(contractAddress as string);
-  if (isERC20TokenInfo(info)) {
-    return info;
-  }
-  return null;
+  return isERC20TokenInfo(info) ? info : null;
 };
 
 export const loadTokenInfoByBalances = async (
   prov: Web3Provider,
   balances: TokenBalances
 ): Promise<TokenBalance[]> => {
-  const results = await Promise.all(
+  return await Promise.all(
     Object.entries(balances).map(async ([token, erc20Balance]) => {
       const result = {
         token,
@@ -138,7 +133,6 @@ export const loadTokenInfoByBalances = async (
       return result;
     })
   );
-  return results.filter((item) => item.info !== null && item.balance !== null);
 };
 
 export const getLastBlocksBefore = async (
@@ -148,28 +142,35 @@ export const getLastBlocksBefore = async (
 ): Promise<BlockInfo[]> => {
   if (count == 0 || fromBlock == 0) return [];
   const blockPromises = Array.from({ length: count }, (_, i) => prov.blockInfo(fromBlock - i));
-  return Promise.all(blockPromises);
+  return await Promise.all(blockPromises);
 };
 
 export const getLastTransactions = async (
   prov: Web3Provider,
   lastBlocks: BlockInfo[],
   limit: number
-) => {
-  let result: TxInfoExtended[] = [];
+): Promise<TxInfoExtended[]> => {
+  const txnsHashes = new Map<string, number>();
   for (const block of lastBlocks) {
-    const startIndex = 0;
-    const details = await prov.call('ots_getBlockTransactions', block.number, startIndex, limit);
-    const newTxns = details.fullblock.transactions.map((txn: TxInfoExtended) => {
-      txn.blockData = { timestamp: block.timestamp };
-      return txn;
-    });
-    result = [...result, ...newTxns.reverse()];
-    if (result.length >= limit) {
+    for (const txn of block.transactions.reverse()) {
+      if (txnsHashes.size === limit) {
+        break;
+      }
+      txnsHashes.set(txn, block.timestamp);
+    }
+    if (txnsHashes.size === limit) {
       break;
     }
   }
-  return result.slice(0, limit);
+
+  const txns = await Promise.all(
+    [...txnsHashes].map(async ([hash, timestamp]) => {
+      const txn = await prov.call('eth_getTransactionByHash', hash);
+      txn.blockData = { timestamp };
+      return txn;
+    })
+  );
+  return txns;
 };
 
 export const getLastTxnsByAddresses = async (
@@ -213,4 +214,58 @@ export const getLastTxnsByAddresses = async (
   });
 
   return sortedTxns.slice(0, limit);
+};
+
+export const getPositiveTokenBalances = async (prov: Web3Provider, address: string) => {
+  const balances = await prov.tokenBalances(address, Object.keys(TOKENS));
+  const positiveBalances = Object.fromEntries(
+    Object.entries(balances).filter(([, balance]) => {
+      // @ts-expect-error: balance might not be a Map if there is TokenError instead
+      return balance instanceof Map && balance?.get(1n) > 0n;
+    })
+  );
+  return positiveBalances;
+};
+
+export const getTokenTransfersForTxn = async (
+  prov: Web3Provider,
+  hash: string,
+  address: string,
+  block: number
+): Promise<NetTransfer[]> => {
+  const txnTransfers = (
+    await prov.transfers(address, {
+      fromBlock: block,
+      toBlock: block,
+    })
+  ).filter((t) => t.hash === hash);
+
+  console.log('txnTransfers', txnTransfers);
+
+  const tokenTransfers = txnTransfers.length ? txnTransfers[0].tokenTransfers : [];
+  if (!tokenTransfers.length) {
+    return [];
+  }
+
+  const addresses = new Set<string>();
+  const hasAddress = tokenTransfers.some((t) => t.from === address || t.to === address);
+  if (hasAddress) {
+    addresses.add(address);
+  }
+  tokenTransfers.forEach((t) => {
+    addresses.add(t.from);
+    addresses.add(t.to);
+  });
+
+  const erc20NetTransfers: NetTransfer[] = [];
+  addresses.forEach((addr) => {
+    tokenTransfers.forEach((t) => {
+      if (t.from === addr) erc20NetTransfers.push({ addr, type: 'sent', transfer: t });
+    });
+    tokenTransfers.forEach((t) => {
+      if (t.to === addr) erc20NetTransfers.push({ addr, type: 'received', transfer: t });
+    });
+  });
+
+  return erc20NetTransfers;
 };

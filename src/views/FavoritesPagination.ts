@@ -6,7 +6,6 @@ import {
   getTransactionsBeforeWithBlockDetails,
 } from '@/utils/network';
 import { txnsWithBlockDetailsToTxnsList, removeTxnsListItemsDuplicates } from '@/utils/utils';
-import { Pagination } from '@/views/Pagination';
 import { Web3Provider } from 'micro-eth-signer/net';
 
 export class FavoritesPagination {
@@ -14,8 +13,8 @@ export class FavoritesPagination {
 
   private prov: Web3Provider;
   private pageSize: number;
-  private pagination: Pagination;
   private cache: AddressCache | undefined;
+  private _testEnv: boolean = false;
 
   nextPageReminder: TransactionListItem[][] = [];
   prevPageReminder: TransactionListItem[][] = [];
@@ -29,20 +28,26 @@ export class FavoritesPagination {
   lastPage: boolean = false;
   page: number = 1;
 
-  private constructor(prov: Web3Provider, pageSize: number, cache?: AddressCache) {
+  private constructor(
+    prov: Web3Provider,
+    pageSize: number,
+    cache?: AddressCache,
+    _testEnv = false
+  ) {
     this.prov = prov;
     this.pageSize = pageSize;
-    this.pagination = Pagination.getInstance(prov, pageSize);
     this.cache = cache;
+    this._testEnv = _testEnv;
   }
 
   static getInstance(
     prov: Web3Provider,
     pageSize: number,
-    cache?: AddressCache
+    cache?: AddressCache,
+    _testEnv = false
   ): FavoritesPagination {
     if (!FavoritesPagination.instance) {
-      FavoritesPagination.instance = new FavoritesPagination(prov, pageSize, cache);
+      FavoritesPagination.instance = new FavoritesPagination(prov, pageSize, cache, _testEnv);
     }
     return FavoritesPagination.instance;
   }
@@ -55,6 +60,7 @@ export class FavoritesPagination {
     this.lastTxnHash = '';
     this.firstPage = false;
     this.lastPage = false;
+    this.page = 1;
   }
 
   async showFirstPage(
@@ -65,7 +71,7 @@ export class FavoritesPagination {
     const { cache } = this;
 
     let allTxns: TransactionListItem[][] = [];
-    if (data) {
+    if (data && data.length) {
       allTxns = data;
     } else {
       const addressesFirstPage = await Promise.all(
@@ -79,15 +85,16 @@ export class FavoritesPagination {
           return result;
         })
       );
-
-      allTxns = removeTxnsListItemsDuplicates(addressesFirstPage.flat());
-
-      allTxns.sort((a, b) => {
-        if (a[0].timestamp === '-') return 1;
-        if (b[0].timestamp === '-') return -1;
-        return Number(b[0].timestamp) - Number(a[0].timestamp);
-      });
+      allTxns = addressesFirstPage.flat();
     }
+
+    allTxns = removeTxnsListItemsDuplicates(allTxns);
+
+    allTxns.sort((a, b) => {
+      if (a[0].timestamp === '-') return 1;
+      if (b[0].timestamp === '-') return -1;
+      return Number(b[0].timestamp) - Number(a[0].timestamp);
+    });
 
     this.prevPageReminder = [];
     this.currentPageTxns = allTxns.slice(0, this.pageSize);
@@ -103,13 +110,16 @@ export class FavoritesPagination {
 
     this.firstPage = true;
     this.page = 1;
-    this.lastPage = await this.checkIsLastPage(addresses);
+    if (!this._testEnv) {
+      this.lastPage = await this.checkIsLastPage(addresses);
+    }
 
     return this.currentPageTxns;
   }
 
   private async checkIsLastPage(addresses: string[]): Promise<boolean> {
     if (this.page === -1) {
+      // TODO: test this case for single address
       return true;
     }
 
@@ -118,6 +128,10 @@ export class FavoritesPagination {
     }
 
     if (this.currentPageTxns.length < this.pageSize) {
+      return true;
+    }
+
+    if (!window.navigator.onLine) {
       return true;
     }
 
@@ -151,7 +165,10 @@ export class FavoritesPagination {
     return moreTxns.length > 0;
   };
 
-  async showNextPage(addresses: string[]): Promise<TransactionListItem[][]> {
+  async showNextPage(
+    addresses: string[],
+    _testData: TransactionListItem[][][] | null = null
+  ): Promise<TransactionListItem[][]> {
     if (this.lastPage) {
       this.nextPageReminder = [];
       return this.currentPageTxns;
@@ -170,22 +187,27 @@ export class FavoritesPagination {
 
       this.firstPage = false;
       this.page++;
-      this.lastPage = await this.checkIsLastPage(addresses);
+      if (!this._testEnv) {
+        this.lastPage = await this.checkIsLastPage(addresses);
+      }
 
       return resultTxns;
     }
 
     /* 2. Loading new txns to get a full list */
+
     const lackTxnsCount = this.pageSize - currentNextReminder.length;
     const block = parseInt(this.currentPageTxns[this.currentPageTxns.length - 1][0].blockNumber);
 
-    const result = await Promise.all(
-      addresses.map(async (address) => {
-        return txnsWithBlockDetailsToTxnsList(
-          await getTransactionsBeforeWithBlockDetails(this.prov, address, block, lackTxnsCount)
-        );
-      })
-    );
+    const result =
+      _testData ??
+      (await Promise.all(
+        addresses.map(async (address) => {
+          return txnsWithBlockDetailsToTxnsList(
+            await getTransactionsBeforeWithBlockDetails(this.prov, address, block, lackTxnsCount)
+          );
+        })
+      ));
 
     const newTxns = removeTxnsListItemsDuplicates(result.flat());
 
@@ -207,7 +229,9 @@ export class FavoritesPagination {
 
     this.firstPage = false;
     this.page++;
-    this.lastPage = await this.checkIsLastPage(addresses);
+    if (!this._testEnv) {
+      this.lastPage = await this.checkIsLastPage(addresses);
+    }
 
     return resultTxns;
   }
@@ -230,16 +254,21 @@ export class FavoritesPagination {
     }
   }
 
-  async showLastPage(addresses: string[]): Promise<TransactionListItem[][]> {
+  async showLastPage(
+    addresses: string[],
+    _testData: TransactionListItem[][][] | null = null
+  ): Promise<TransactionListItem[][]> {
     this.clear();
 
-    const addressesLastPage = await Promise.all(
-      addresses.map(async (address) => {
-        return txnsWithBlockDetailsToTxnsList(
-          await getTransactionsAfterWithBlockDetails(this.prov, address, 0, this.pageSize)
-        );
-      })
-    );
+    const addressesLastPage =
+      _testData ??
+      (await Promise.all(
+        addresses.map(async (address) => {
+          return txnsWithBlockDetailsToTxnsList(
+            await getTransactionsAfterWithBlockDetails(this.prov, address, 0, this.pageSize)
+          );
+        })
+      ));
 
     const allTxns = removeTxnsListItemsDuplicates(addressesLastPage.flat());
     allTxns.sort((a, b) => {
@@ -264,7 +293,9 @@ export class FavoritesPagination {
     this.lastTxnHash = this.currentPageTxns[this.currentPageTxns.length - 1][0].hash;
 
     this.page = -1;
-    this.firstPage = await this.checkIsFirstPage(addresses);
+    if (!this._testEnv) {
+      this.firstPage = await this.checkIsFirstPage(addresses);
+    }
     this.lastPage = true;
 
     return this.currentPageTxns;
@@ -272,6 +303,7 @@ export class FavoritesPagination {
 
   private async checkIsFirstPage(addresses: string[]): Promise<boolean> {
     if (this.page === 1) {
+      // TODO: test this case for single address
       return true;
     }
 
@@ -330,7 +362,9 @@ export class FavoritesPagination {
       this.currentPageTxns = resultTxns; // set new currentPageTxns only after calling getNextPageReminderOnShowPrevPage
 
       this.page--;
-      this.firstPage = await this.checkIsFirstPage(addresses);
+      if (!this._testEnv) {
+        this.firstPage = await this.checkIsFirstPage(addresses);
+      }
       this.lastPage = false;
 
       return resultTxns;
@@ -373,7 +407,9 @@ export class FavoritesPagination {
     this.currentPageTxns = resultTxns; // set new currentPageTxns only after calling getNextPageReminderOnShowPrevPage
 
     this.page--;
-    this.firstPage = await this.checkIsFirstPage(addresses);
+    if (!this._testEnv) {
+      this.firstPage = await this.checkIsFirstPage(addresses);
+    }
     this.lastPage = false;
 
     return resultTxns;

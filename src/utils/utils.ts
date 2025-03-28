@@ -3,6 +3,7 @@ import type {
   OtsSearchTransaction,
   OtsSearchTransactionExtended,
   TransactionListItem,
+  NetTransfer,
 } from '@/types';
 import { decodeData } from 'micro-eth-signer/abi';
 import { formatters, hexToNumber } from 'micro-eth-signer/utils';
@@ -44,7 +45,7 @@ export const shortenFavAddr = (address: string | null) => {
   if (!address?.length) {
     return '-';
   }
-  if (address.length < 15) {
+  if (address.length < 18) {
     return address;
   }
   return `${address.slice(0, 10)}...${address.slice(-8)}`;
@@ -54,7 +55,7 @@ export const shortenAddr = (address: string | null) => {
   if (!address?.length) {
     return '-';
   }
-  if (address.length <= 9) {
+  if (address.length < 9) {
     return address;
   }
   return `${address.slice(0, 9)}...`;
@@ -228,12 +229,7 @@ export const transfersToTxnsList = (transfers: TxTransfers[]): TransactionListIt
       };
       txns.push(mainTxn);
       i.tokenTransfers.forEach((transfer) => {
-        let value = '-';
-        const transferValue = transfer.tokens.get(1n) ?? null;
-        const decimals = 'decimals' in transfer ? transfer.decimals : null;
-        if (transferValue && decimals) {
-          value = fromTokenBalanceToHumanReadable(transferValue, decimals, decimals);
-        }
+        const value = getTransferValue(transfer);
         const tokenTransfer = {
           hash: i.hash,
           date: i.timestamp ? formatTimestampLocal(i.timestamp) : '-',
@@ -255,9 +251,9 @@ export const transfersToTxnsList = (transfers: TxTransfers[]): TransactionListIt
 
 export const getTransferValue = (transfer: TokenTransfer) => {
   let value = '-';
-  const transferValue = transfer.tokens.get(1n) ?? null;
-  const decimals = 'decimals' in transfer ? transfer.decimals : null;
-  if (transferValue && decimals) {
+  const transferValue = transfer.tokens.has(1n) ? transfer.tokens.get(1n) : undefined;
+  const decimals = 'decimals' in transfer ? transfer.decimals : undefined;
+  if (transferValue !== undefined && decimals !== undefined) {
     value = fromTokenBalanceToHumanReadable(transferValue, decimals, decimals);
   }
   return value;
@@ -299,6 +295,73 @@ export const removeTxnsListItemsDuplicates = (
     uniqueTxnsList.push(txns);
   }
   return uniqueTxnsList;
+};
+
+export const sortTxnsListItemsByTimestamp = (
+  txnsList: TransactionListItem[][]
+): TransactionListItem[][] => {
+  return txnsList.sort((a, b) => {
+    if (a[0].timestamp === '-') return 1;
+    if (b[0].timestamp === '-') return -1;
+    return Number(b[0].timestamp) - Number(a[0].timestamp);
+  });
+};
+
+export const stringArraysEqual = (arr1: string[], arr2: string[]) => {
+  if (arr1.length !== arr2.length) return false;
+  return arr1.sort().toString() === arr2.sort().toString();
+};
+
+export const concatTransfers = (from: NetTransfer[], to: NetTransfer[]) => {
+  const result = structuredClone(from);
+  to.forEach((toTransfer) => {
+    const inResult = result.some((fromTransafer) =>
+      isERC20NetTransfersEqual(fromTransafer, toTransfer)
+    );
+    if (!inResult) {
+      result.push(toTransfer);
+    }
+  });
+  return result;
+};
+
+export const isERC20NetTransfersEqual = (a: NetTransfer, b: NetTransfer) => {
+  if (a.addr !== b.addr || a.type !== b.type) {
+    return false;
+  }
+
+  const at = a.transfer;
+  const bt = b.transfer;
+
+  const keysToCheck = [
+    'abi',
+    'contract',
+    'decimals',
+    'from',
+    'name',
+    'symbol',
+    'to',
+    'totalSupply',
+  ];
+
+  for (const key of keysToCheck) {
+    if (!(key in at) || !(key in bt)) {
+      return false;
+    }
+
+    // @ts-ignore
+    if (at[key] !== bt[key]) {
+      return false;
+    }
+  }
+
+  const aValue = at.tokens.get(1n);
+  const bValue = at.tokens.get(1n);
+  if (aValue !== bValue) {
+    return false;
+  }
+
+  return true;
 };
 
 // TODO: remove, not used

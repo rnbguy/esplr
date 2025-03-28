@@ -46,7 +46,6 @@ export class Pagination {
     if (!Pagination.instance) {
       Pagination.instance = new Pagination(prov, pageSize);
     }
-
     return Pagination.instance;
   }
 
@@ -111,7 +110,7 @@ export class Pagination {
       return true;
     }
 
-    if (window.navigator.onLine === false) {
+    if (!window.navigator.onLine) {
       return true;
     }
 
@@ -128,11 +127,14 @@ export class Pagination {
   ): Promise<TransactionListItem[][]> {
     this.clear();
 
-    const fullList =
-      data ??
-      txnsWithBlockDetailsToTxnsList(
+    let fullList: TransactionListItem[][] = [];
+    if (data && data.length) {
+      fullList = data;
+    } else {
+      fullList = txnsWithBlockDetailsToTxnsList(
         await getLatestTxnsWithBlockDetails(this.prov, address, this.pageSize)
       );
+    }
 
     this.prevPageReminder = [];
     this.currentPageTxns = fullList.slice(0, this.pageSize);

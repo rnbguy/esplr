@@ -7,12 +7,16 @@ import { APP_DESC, CACHE_INTERVAL_MINUTES } from '@/config';
 import { useSettingsStore } from '@/stores/settings';
 import { AddressCache } from '@/cache';
 import { MainPageCache } from '@/cache/mainPage';
-import type { TxInfoExtended, OtsSearchTransactionExtended } from '@/types';
+import type { TxInfoExtended, TransactionListItem } from '@/types';
 import {
   fromWeiToGwei,
   roundToTwo,
   hasMinutesPassed,
   formatTimestampLocalWithoutYear,
+  stringArraysEqual,
+  removeTxnsListItemsDuplicates,
+  sortTxnsListItemsByTimestamp,
+  txnsWithBlockDetailsToTxnsList,
 } from '@/utils/utils';
 import {
   getGasPriceWei,
@@ -42,7 +46,7 @@ const provider = inject<Ref<Web3Provider>>('provider');
 if (!provider) throw new Error('Provider not found!');
 const prov = ref<Web3Provider>(provider.value);
 
-const favoriteTxns = ref<OtsSearchTransactionExtended[]>([]);
+const favoriteTxns = ref<TransactionListItem[][]>([]);
 const favoriteAddresses = ref<string[]>([]);
 const addressCache = AddressCache.getInstance();
 
@@ -59,9 +63,12 @@ onMounted(async () => {
 });
 
 const mount = async () => {
+  const showPrices = settingsStore.showUsdPrices;
   const lastUpdateTimestamp = mainDataCache.getLastUpdateTimestamp();
   const timeToUpdate = hasMinutesPassed(lastUpdateTimestamp, CACHE_INTERVAL_MINUTES);
-  if (mainDataCache.hasData() && !timeToUpdate && !updateRequested) {
+  const hasCache = showPrices ? mainDataCache.hasDataWithPrice() : mainDataCache.hasData();
+
+  if (hasCache && !timeToUpdate && !updateRequested) {
     return laodDataFromCache();
   }
 
@@ -74,17 +81,13 @@ const mount = async () => {
   const maxPriorityFeeHex = await prov.value.call('eth_maxPriorityFeePerGas');
   const newMaxPriorityFeeGwei = fromWeiToGwei(BigInt(maxPriorityFeeHex), GAS_PRICE_PRECISION);
 
-  if (settingsStore.showUsdPrices) {
+  if (showPrices) {
     const link = new Chainlink(prov.value);
     ethPrice.value = roundToTwo(await link.coinPrice('ETH'));
   }
 
   const newFavoriteAddresses = Array.from(addressCache.getFavoriteAddresses());
-  const newFavoriteTxns = await getLastTxnsByAddresses(
-    prov.value as Web3Provider,
-    newFavoriteAddresses,
-    LAST_TXNS_COUNT
-  );
+  const newFavoriteTxns = await getNewFavoriteTxns(newFavoriteAddresses);
 
   const newLastBlocks = await getLastBlocksBefore(
     prov.value as Web3Provider,
@@ -119,6 +122,32 @@ const mount = async () => {
   setLoadingData(false);
 };
 
+const updateFavoritesFromCache = () => {
+  const newFavoriteAddresses = Array.from(addressCache.getFavoriteAddresses());
+
+  let cachedTxns: TransactionListItem[][] = [];
+  newFavoriteAddresses.forEach((address) => {
+    const txns = addressCache.getInternalTransactions(address) || [];
+    cachedTxns = cachedTxns.concat(txns);
+  });
+  const uniqueCachedTxns = removeTxnsListItemsDuplicates(cachedTxns);
+  const newFavoriteTxns = sortTxnsListItemsByTimestamp(uniqueCachedTxns).slice(0, LAST_TXNS_COUNT);
+
+  favoriteAddresses.value = newFavoriteAddresses;
+  favoriteTxns.value = newFavoriteTxns;
+  mainDataCache.setFavoriteAddresses(newFavoriteAddresses);
+  mainDataCache.setFavoriteTxns(newFavoriteTxns);
+};
+
+const getNewFavoriteTxns = async (addresses: string[]) => {
+  const latestTxns = await getLastTxnsByAddresses(
+    prov.value as Web3Provider,
+    addresses,
+    LAST_TXNS_COUNT
+  );
+  return txnsWithBlockDetailsToTxnsList(latestTxns);
+};
+
 const setLoadingData = (loading: boolean) => {
   loadingData.value = loading;
 };
@@ -136,13 +165,21 @@ const handleUpdateData = async () => {
 
 const laodDataFromCache = () => {
   gasPriceGwei.value = mainDataCache.getGasPriceGwei();
-  favoriteAddresses.value = mainDataCache.getFavoriteAddresses();
-  favoriteTxns.value = mainDataCache.getFavoriteTxns();
   lastBlocks.value = mainDataCache.getLastBlocks();
   lastTxns.value = mainDataCache.getLastTxns();
   maxPriorityFeeGwei.value = mainDataCache.getMaxPriorityFeeGwei();
   ethPrice.value = mainDataCache.getEthPrice();
   updatedTimestamp.value = mainDataCache.getLastUpdateTimestamp();
+
+  const cachedMainPagefavorites = mainDataCache.getFavoriteAddresses();
+  const actualFavorites = Array.from(addressCache.getFavoriteAddresses());
+  const favoritesChanged = !stringArraysEqual(cachedMainPagefavorites, actualFavorites);
+  if (favoritesChanged) {
+    updateFavoritesFromCache();
+  } else {
+    favoriteTxns.value = mainDataCache.getFavoriteTxns();
+    favoriteAddresses.value = mainDataCache.getFavoriteAddresses();
+  }
 };
 </script>
 

@@ -14,7 +14,7 @@
   "dependencies": {
     "bootstrap-icons": "1.11.3",
     "micro-eth-signer": "^0.14.0",
-    "micro-ftch": "^0.4.2",
+    "micro-ftch": "^0.4.3",
     "pinia": "2.2.6",
     "vue": "3.5.12",
     "vue-router": "4.4.5"

@@ -3,8 +3,8 @@ import type {
   OtsGetContractCreatorResponse,
   TokenBalance,
   TransactionListItem,
+  UnspentWithUsd,
 } from '@/types';
-import type { Unspent } from 'node_modules/micro-eth-signer/net/archive';
 
 export class AddressCache {
   private static instance: AddressCache;
@@ -12,15 +12,13 @@ export class AddressCache {
   private tokens: Map<string, TokenBalance[]> = new Map();
   private internalTransactions: Map<string, TransactionListItem[][]> = new Map();
   private tokenTransfersTransactions: Map<string, TransactionListItem[][]> = new Map();
-  private unspent: Map<string, Unspent> = new Map();
+  private unspent: Map<string, UnspentWithUsd> = new Map();
   private updatedAtTimestamp: Map<string, number> = new Map();
-  private unspentEthUsd: Map<string, number> = new Map();
 
   private tokenInfo: Map<string, ERC20TokenInfo | null> = new Map();
   private tokenCreator: Map<string, OtsGetContractCreatorResponse> = new Map();
 
   private favoriteAddresses = new Set<string>();
-  private internalTransactionsFavorites = <TransactionListItem[][]>[];
 
   private constructor() {}
 
@@ -38,7 +36,6 @@ export class AddressCache {
     this.tokenTransfersTransactions.clear();
     this.unspent.clear();
     this.updatedAtTimestamp.clear();
-    this.unspentEthUsd.clear();
     this.tokenInfo.clear();
     this.tokenCreator.clear();
   }
@@ -54,9 +51,14 @@ export class AddressCache {
     this.internalTransactions.delete(address);
     this.unspent.delete(address);
     this.updatedAtTimestamp.delete(address);
-    this.unspentEthUsd.delete(address);
     this.tokenInfo.delete(address);
     this.tokenCreator.delete(address);
+  }
+
+  clearAddressesForUpdate(addresses: string[]): void {
+    addresses.forEach((address) => {
+      this.clearAddressForUpdate(address);
+    });
   }
 
   allCachedAddresses(): string[] {
@@ -71,26 +73,6 @@ export class AddressCache {
         ...this.tokenCreator.keys(),
       ])
     );
-  }
-
-  /**
-   * Eth usd amount for address
-   */
-
-  setUnspentEthUsd(address: string, value: number): void {
-    this.unspentEthUsd.set(address, value);
-  }
-
-  getUnspentEthUsd(address: string): number | undefined {
-    return this.unspentEthUsd.get(address);
-  }
-
-  hasUnspentEthUsd(address: string): boolean {
-    return this.unspentEthUsd.has(address);
-  }
-
-  removeUnspentEthUsd(address: string): void {
-    this.unspentEthUsd.delete(address);
   }
 
   /**
@@ -111,6 +93,34 @@ export class AddressCache {
 
   removeUpdatedAtTimestamp(address: string): void {
     this.updatedAtTimestamp.delete(address);
+  }
+
+  hasUpdatedAtTimestampForEveryAddress(addresses: string[]): boolean {
+    return addresses.every((address) => this.updatedAtTimestamp.has(address));
+  }
+
+  getUpdatedAtTimestampForAddresses(addresses: string[]): Map<string, number> {
+    let cachedTimestamps: Map<string, number> = new Map();
+    addresses.forEach((address: string) => {
+      const timestamp = this.getUpdatedAtTimestamp(address);
+      cachedTimestamps.set(address, timestamp);
+    });
+    return cachedTimestamps;
+  }
+
+  getLowestUpdatedAtTimestampForAddresses(addresses: string[]): number {
+    const cached = this.getUpdatedAtTimestampForAddresses(addresses);
+    const timestamps = Array.from(cached.values()).filter((timestamp) => timestamp > 0);
+    if (!timestamps.length) {
+      return 0;
+    }
+    return Math.min(...timestamps);
+  }
+
+  setUpdatedAtTimestampForAddresses(addresses: string[], timestamp: number): void {
+    addresses.forEach((address: string) => {
+      this.setUpdatedAtTimestamp(address, timestamp);
+    });
   }
 
   /**
@@ -165,11 +175,11 @@ export class AddressCache {
    * Unspent Cache
    */
 
-  addUnspent(address: string, unspent: Unspent): void {
+  addUnspent(address: string, unspent: UnspentWithUsd): void {
     this.unspent.set(address, unspent);
   }
 
-  getUnspent(address: string): Unspent | undefined {
+  getUnspent(address: string): UnspentWithUsd | undefined {
     return this.unspent.get(address);
   }
 
@@ -181,7 +191,7 @@ export class AddressCache {
     this.unspent.delete(address);
   }
 
-  getAllUnspent(): ReadonlyMap<string, Unspent> {
+  getAllUnspent(): ReadonlyMap<string, UnspentWithUsd> {
     return this.unspent;
   }
 
@@ -189,90 +199,95 @@ export class AddressCache {
    * Tokens Balances Cache
    */
 
-  // Add token balance for a specific address
-  addToken(address: string, tokens: TokenBalance[]): void {
+  addTokens(address: string, tokens: TokenBalance[]): void {
     this.tokens.set(address, tokens);
   }
 
-  // Get token balance for a specific address
-  getToken(address: string): TokenBalance[] | undefined {
+  getTokens(address: string): TokenBalance[] | undefined {
     return this.tokens.get(address);
   }
 
-  // Check if an address exists in the map
-  hasTokenAddress(address: string): boolean {
-    return this.tokens.has(address);
-  }
-
-  // Remove token balance for a specific address
-  removeTokenAddress(address: string): void {
+  removeTokensAddress(address: string): void {
     this.tokens.delete(address);
   }
 
-  // Get all tokens balances
   getAllTokens(): ReadonlyMap<string, TokenBalance[]> {
     return this.tokens;
+  }
+
+  hasTokensForEveryAddress(addresses: string[]): boolean {
+    return addresses.every((address) => this.tokens.has(address));
+  }
+
+  getTokensForAddresses(addresses: string[]): Map<string, TokenBalance[]> {
+    let cachedTokens: Map<string, TokenBalance[]> = new Map();
+    addresses.forEach((address: string) => {
+      const tokens = this.getTokens(address) || [];
+      cachedTokens.set(address, tokens);
+    });
+    return cachedTokens;
   }
 
   /**
    * Internal Transactions Cache
    */
 
-  // Add internal transactions for a specific address
   addInternalTransactions(address: string, transactions: TransactionListItem[][]): void {
     this.internalTransactions.set(address, transactions);
   }
 
-  // Get internal transactions for a specific address
   getInternalTransactions(address: string): TransactionListItem[][] | undefined {
     return this.internalTransactions.get(address);
   }
 
-  // Check if an address exists in the map
   hasInternalTransactionsAddress(address: string): boolean {
     return this.internalTransactions.has(address);
   }
 
-  // Remove internal transactions for a specific address
   removeInternalTransactionsAddress(address: string): void {
     this.internalTransactions.delete(address);
   }
 
-  // Get all internal transactions
   getAllInternalTransactions(): ReadonlyMap<string, TransactionListItem[][]> {
     return this.internalTransactions;
+  }
+
+  hasInternalTransactionsForEveryAddress(addresses: string[]): boolean {
+    return addresses.every((address) => this.internalTransactions.has(address));
+  }
+
+  getInternalTransactionsForAddresses(addresses: string[]): Map<string, TransactionListItem[][]> {
+    let cachedTxns: Map<string, TransactionListItem[][]> = new Map();
+    addresses.forEach((address: string) => {
+      const txns = this.getInternalTransactions(address) || [];
+      cachedTxns.set(address, txns);
+    });
+    return cachedTxns;
   }
 
   /**
    * Token Transfers Transactions Cache
    */
 
-  // Add token transfers transactions for a specific address
   addTokenTransfersTransactions(address: string, transactions: TransactionListItem[][]): void {
     this.tokenTransfersTransactions.set(address, transactions);
   }
 
-  // Get token transfers transactions for a specific address
   getTokenTransfersTransactions(address: string): TransactionListItem[][] | undefined {
     return this.tokenTransfersTransactions.get(address);
   }
 
-  // Check if an address exists in the map
   hasTokenTransfersTransactionsAddress(address: string): boolean {
     return this.tokenTransfersTransactions.has(address);
   }
 
-  // Remove token transfers transactions for a specific address
   removeTokenTransfersTransactionsAddress(address: string): void {
     this.tokenTransfersTransactions.delete(address);
   }
 
-  // Get all token transfers transactions
   getAllTokenTransfersTransactions(): ReadonlyMap<string, TransactionListItem[][]> {
     return this.tokenTransfersTransactions;
   }
-
-  // TODO: extract to separate favorite address cache class
 
   /**
    * FAVOURITE ADDRESSES
@@ -292,25 +307,5 @@ export class AddressCache {
 
   removeFavoriteAddress(address: string): void {
     this.favoriteAddresses.delete(address);
-  }
-
-  /**
-   * FAVOURITE ADDRESSES INTERNAL TRANSACTIONS
-   */
-
-  hasInternalTransactionsAddressFavorites(): boolean {
-    return this.internalTransactionsFavorites.length > 0;
-  }
-
-  getInternalTransactionsFavorites(): TransactionListItem[][] {
-    return this.internalTransactionsFavorites;
-  }
-
-  addInternalTransactionsFavorites(txns: TransactionListItem[][]): void {
-    this.internalTransactionsFavorites = txns;
-  }
-
-  clearInternalTransactionsFavorites(): void {
-    this.internalTransactionsFavorites = [];
   }
 }

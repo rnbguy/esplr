@@ -1,4 +1,4 @@
-import type { OtsSearchTransactionExtended, TxInfoExtended } from '@/types';
+import type { TxInfoExtended, TransactionListItem } from '@/types';
 import type { BlockInfo } from 'node_modules/micro-eth-signer/net/archive';
 
 export class MainPageCache {
@@ -9,7 +9,7 @@ export class MainPageCache {
   private gasPriceGwei: string = '';
   private maxPriorityFeeGwei: string = '';
   private favoriteAddresses = <string[]>[];
-  private favoriteTxns = <OtsSearchTransactionExtended[]>[];
+  private favoriteTxns = <TransactionListItem[][]>[];
   private lastBlocks = <BlockInfo[]>[];
   private lastTxns = <TxInfoExtended[]>[];
   private ethPrice = 0;
@@ -29,6 +29,9 @@ export class MainPageCache {
       this.lastUpdateTimestamp !== 0
     );
   }
+  hasDataWithPrice(): boolean {
+    return this.hasData() && this.ethPrice !== 0;
+  }
 
   setEthPrice(ethPrice: number): void {
     this.ethPrice = ethPrice;
@@ -47,16 +50,14 @@ export class MainPageCache {
   setFavoriteAddresses(favoriteAddresses: string[]): void {
     this.favoriteAddresses = favoriteAddresses;
   }
-
   getFavoriteAddresses(): string[] {
     return this.favoriteAddresses;
   }
 
-  setFavoriteTxns(favoriteTxns: OtsSearchTransactionExtended[]): void {
+  setFavoriteTxns(favoriteTxns: TransactionListItem[][]): void {
     this.favoriteTxns = favoriteTxns;
   }
-
-  getFavoriteTxns(): OtsSearchTransactionExtended[] {
+  getFavoriteTxns(): TransactionListItem[][] {
     return this.favoriteTxns;
   }
 

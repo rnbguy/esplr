@@ -1,4 +1,4 @@
-import { Pagination } from '@/views/Pagination';
+import { FavoritesPagination } from '@/views/FavoritesPagination';
 import { Web3Provider } from 'micro-eth-signer/net';
 import { jsonrpc } from 'micro-ftch';
 import { describe, expect, it, vi } from 'vitest';
@@ -22,9 +22,11 @@ const SHOW_TXNS_LIMIT = 5; // mock data from files is supposed to have 5 txns pe
 const prov = new Web3Provider(jsonrpc(fetch.bind(window), RPC_URL));
 const address = '0x1234567890123456789012345678901234567890';
 
-const pagination = Pagination.getInstance(
+const pagination = FavoritesPagination.getInstance(
   prov,
-  SHOW_TXNS_LIMIT
+  SHOW_TXNS_LIMIT,
+  undefined, // cache
+  true // _testEnv
   // mockGetLatestTxns,
 );
 
@@ -37,7 +39,7 @@ const setupPaginationTest = async (mockJson: unknown) => {
 describe('First page', () => {
   it('Load with no reminders', async () => {
     const testData = await setupPaginationTest(firstNoNextReminder);
-    const firstPage = await pagination.showFirstPage(address, testData);
+    const firstPage = await pagination.showFirstPage([address], testData);
 
     expect(pagination.prevPageReminder).toEqual([]);
     expect(pagination.currentPageTxns).toEqual(firstPage);
@@ -50,7 +52,7 @@ describe('First page', () => {
   it('Load with reminders', async () => {
     const testData = await setupPaginationTest(firstNextReminder);
 
-    const firstPage = await pagination.showFirstPage(address, testData);
+    const firstPage = await pagination.showFirstPage([address], testData);
     const newReminder = testData.slice(SHOW_TXNS_LIMIT);
 
     expect(pagination.prevPageReminder).toEqual([]);
@@ -71,7 +73,7 @@ describe('Next page', () => {
     pagination.currentPageTxns = testData.currentPageTxns;
     pagination.nextPageReminder = testData.nextPageReminder;
 
-    await pagination.showNextPage(address);
+    await pagination.showNextPage([address]);
     expect(pagination.prevPageReminder).toEqual([]);
     expect(pagination.currentPageTxns).toEqual(testData.nextPageReminder);
     expect(pagination.nextPageReminder).toEqual([]);
@@ -83,7 +85,7 @@ describe('Next page', () => {
     pagination.currentPageTxns = testData.currentPageTxns;
     pagination.nextPageReminder = testData.nextPageReminder;
 
-    await pagination.showNextPage(address);
+    await pagination.showNextPage([address]);
     expect(pagination.prevPageReminder).toEqual([]);
     expect(pagination.currentPageTxns).toEqual(testData.nextPageReminder.slice(0, SHOW_TXNS_LIMIT));
     expect(pagination.nextPageReminder).toEqual(testData.nextPageReminder.slice(SHOW_TXNS_LIMIT));
@@ -95,7 +97,7 @@ describe('Next page', () => {
     pagination.currentPageTxns = testData.currentPageTxns;
     pagination.nextPageReminder = testData.nextPageReminder;
 
-    await pagination.showNextPage(address);
+    await pagination.showNextPage([address]);
     expect(pagination.prevPageReminder).toEqual(testData.expectedPrevReminder);
     expect(pagination.currentPageTxns).toEqual(testData.nextPageReminder);
     expect(pagination.nextPageReminder).toEqual([]);
@@ -108,7 +110,7 @@ describe('Next page', () => {
     pagination.currentPageTxns = testData.currentPageTxns;
     pagination.nextPageReminder = testData.nextPageReminder;
 
-    await pagination.showNextPage(address);
+    await pagination.showNextPage([address]);
     expect(pagination.prevPageReminder).toEqual(testData.expectedPrevReminder);
     expect(pagination.currentPageTxns).toEqual(testData.nextPageReminder);
     expect(pagination.nextPageReminder).toEqual([]);
@@ -121,7 +123,7 @@ describe('Next page', () => {
     pagination.currentPageTxns = testData.currentPageTxns;
     pagination.nextPageReminder = testData.nextPageReminder;
 
-    await pagination.showNextPage(address);
+    await pagination.showNextPage([address]);
     expect(pagination.prevPageReminder).toEqual(testData.expectedPrevReminder);
     expect(pagination.currentPageTxns).toEqual(testData.nextPageReminder);
     expect(pagination.nextPageReminder).toEqual([]);
@@ -133,8 +135,8 @@ describe('Next page', () => {
     const dataToLoad = testData.dataToLoad;
     pagination.currentPageTxns = testData.currentPageTxns;
 
-    // console.log('dataToLoad', dataToLoad)
-    await pagination.showNextPage(address, dataToLoad);
+    // console.log('dataToLoad', dataToLoad);
+    await pagination.showNextPage([address], [dataToLoad]);
     expect(pagination.prevPageReminder).toEqual([]);
     expect(pagination.currentPageTxns).toEqual(dataToLoad);
     expect(pagination.nextPageReminder).toEqual([]);
@@ -148,7 +150,7 @@ describe('Next page', () => {
     pagination.nextPageReminder = testData.nextPageReminder;
     const expectedCurrentPageTxns = testData.nextPageReminder.concat(dataToLoad);
 
-    await pagination.showNextPage(address, dataToLoad);
+    await pagination.showNextPage([address], [dataToLoad]);
     expect(pagination.prevPageReminder).toEqual([]);
     expect(expectedCurrentPageTxns.length).toBe(SHOW_TXNS_LIMIT);
     expect(pagination.currentPageTxns).toEqual(expectedCurrentPageTxns);
@@ -165,7 +167,7 @@ describe('Next page', () => {
       .concat(dataToLoad)
       .slice(0, SHOW_TXNS_LIMIT);
 
-    await pagination.showNextPage(address, dataToLoad);
+    await pagination.showNextPage([address], [dataToLoad]);
     expect(pagination.prevPageReminder).toEqual([]);
     expect(expectedCurrentPageTxns.length).toBe(SHOW_TXNS_LIMIT);
     expect(pagination.currentPageTxns).toEqual(expectedCurrentPageTxns);
@@ -180,7 +182,7 @@ describe('Next page', () => {
     pagination.nextPageReminder = testData.nextPageReminder;
     const expectedCurrentPageTxns = testData.nextPageReminder.concat(dataToLoad);
 
-    await pagination.showNextPage(address, dataToLoad);
+    await pagination.showNextPage([address], [dataToLoad]);
     expect(pagination.prevPageReminder).toEqual(testData.expectedPrevReminder);
     expect(expectedCurrentPageTxns.length).toBe(SHOW_TXNS_LIMIT);
     expect(pagination.currentPageTxns).toEqual(expectedCurrentPageTxns);
@@ -195,7 +197,7 @@ describe('Next page', () => {
     pagination.nextPageReminder = testData.nextPageReminder;
     const expectedCurrentPageTxns = testData.nextPageReminder.concat(dataToLoad);
 
-    await pagination.showNextPage(address, dataToLoad);
+    await pagination.showNextPage([address], [dataToLoad]);
     expect(pagination.prevPageReminder).toEqual(testData.expectedPrevReminder);
     expect(expectedCurrentPageTxns.length).toBe(SHOW_TXNS_LIMIT);
     expect(pagination.currentPageTxns).toEqual(expectedCurrentPageTxns);
@@ -211,7 +213,7 @@ describe('Next page', () => {
     pagination.prevPageReminder = testData.prevPageReminder;
     const expectedCurrentPageTxns = testData.nextPageReminder.concat(dataToLoad);
 
-    await pagination.showNextPage(address, dataToLoad);
+    await pagination.showNextPage([address], [dataToLoad]);
     expect(pagination.prevPageReminder).toEqual(testData.expectedPrevReminder);
     expect(expectedCurrentPageTxns.length).toBe(SHOW_TXNS_LIMIT);
     expect(pagination.currentPageTxns).toEqual(expectedCurrentPageTxns);
@@ -220,7 +222,7 @@ describe('Next page', () => {
 
   it('If current page is last, return current page txns', async () => {
     const testData = await setupPaginationTest(firstNoNextReminder);
-    const lastPage = await pagination.showLastPage(address, testData);
+    const lastPage = await pagination.showLastPage([address], [testData]);
 
     expect(pagination.prevPageReminder).toEqual([]);
     expect(pagination.currentPageTxns).toEqual(lastPage);
@@ -228,10 +230,9 @@ describe('Next page', () => {
     expect(pagination.lastTxnHash).toEqual(testData[testData.length - 1][0].hash);
     expect(pagination.lastTxnHash).toEqual(lastPage[lastPage.length - 1][0].hash);
 
-    // TODO fix this (error happened when checking last or first page)
-    // const nextPage = await pagination.showNextPage(address)
-    // expect(nextPage).toEqual(lastPage)
-    // expect(pagination.prevPageReminder).toEqual([])
-    // expect(pagination.nextPageReminder).toEqual([])
+    const nextPage = await pagination.showNextPage([address]);
+    expect(nextPage).toEqual(lastPage);
+    expect(pagination.prevPageReminder).toEqual([]);
+    expect(pagination.nextPageReminder).toEqual([]);
   });
 });
