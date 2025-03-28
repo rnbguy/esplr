@@ -182,3 +182,21 @@
     transform: rotate(360deg);
   }
 }
+
+.bi-box:before                     { content: "📦"; }
+.bi-trash:before { content: "🗑️"; }
+.bi-copy:before { content: "©"; }
+.bi-file-earmark-text:before       { content: "📃"; }
+.bi-arrow-clockwise:before  { content: "🔄"; }
+.bi-star:before { content: "☆"; }
+.bi-star-fill:before { content: "★"; }
+.bi-dash-circle-fill:before { content: "⛔️"; }
+.bi-plus-circle-fill:before { content: "❇️"; }
+.bi-x-circle-fill:before { content: "🔴"; }
+.bi-check-circle-fill:before { content: "✅"; }
+.bi-exclamation-triangle:before { content: "⚠️"; }
+.bi-chevron-left:before { content: "⬅️"; }
+.bi-chevron-right:before { content: "➡️"; }
+.bi-info-circle:before { content: "ℹ"; }
+.bi-check2:before { content: "✓"; }
+.bi-door-closed:before { content: "🚪"; }
