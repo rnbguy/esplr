@@ -74,10 +74,15 @@ erigon --datadir=/data/erigon --prune.mode='archive' --torrent.download.rate="10
 
 Initial sync will take 8 hours for ETH mainnet on 100Mbps connection (slower ones can still be used). After that RPC will be ready.
 By default, RPC runs on port 8545. If computer which runs it is not the same one
-where RPC is accessed from, you will need to expose the port. There are two ways to do this:
+where RPC is accessed from, you will need to expose the port.
+
+### Making app available on the internet
+
+There are two ways to make app available:
 
 1. Install NGINX, do `proxy_pass http://127.0.0.1:8545`. You will probably need domain and SSL certificate. For example, if domain is `ethnode.com`, you will be able to specify its RPC.
-2. SSH tunneling: use SSH connection to forward 8545 to your local machine:
+  It is suggested to use basic auth (user:password@ethnode.com).
+2. SSH tunneling: use SSH connection to forward port 8545 to your local machine:
    `ssh -L 5678:127.0.0.1:8545 root@192.168.1.50` where 5678 is port on your local machine,
    `root@192.168.1.50` is user + hostname of Erigon3 server.
 
