@@ -54,6 +54,23 @@ const handleConnect = async (url: string) => {
   <h1><RouterLink class="title-link" to="/">ESPLR</RouterLink></h1>
   <p v-if="!connected">{{ APP_DESC }}</p>
   <RpcField v-if="!connected" :connectionError="connectionError" @connect="handleConnect" />
+
+  <div v-if="!connected">
+    For the application to work correctly, an Erigon Node is required. Here you can find lists of
+    available RPCs for EVM networks. <br />
+    <ul style="margin-top: 5px">
+      <li>
+        <a target="_blank" href="https://chainlist.org/chain/1">chainlist.org</a>
+      </li>
+      <li>
+        <a target="_blank" href="https://evmchain.info/chain/1">evmchain.info</a>
+      </li>
+      <li>
+        <a target="_blank" href="https://chainid.network/chain/1/">chainid.network</a>
+      </li>
+    </ul>
+  </div>
+
   <div v-if="connected">
     <Header />
     <Search />

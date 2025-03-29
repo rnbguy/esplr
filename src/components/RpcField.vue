@@ -9,6 +9,8 @@ const RPC_URL = '';
 const rpcUrl = ref(RPC_URL);
 const remember = ref(false);
 
+const error = ref(false);
+
 onMounted(() => {
   // auto connect for development
   // emit('connect', RPC_URL);
@@ -23,8 +25,15 @@ const handleConnect = async () => {
   if (!rpcUrl.value) {
     return;
   }
-  const hasProtocol = hasValidProtocol(rpcUrl.value);
-  const url = hasProtocol ? rpcUrl.value : addProtocol(rpcUrl.value);
+
+  if (!hasValidProtocol(rpcUrl.value)) {
+    error.value = true;
+    return;
+  }
+
+  const url = hasProtocol(rpcUrl.value) ? rpcUrl.value : addProtocol(rpcUrl.value);
+
+  error.value = false;
   emit('connect', url);
 };
 
@@ -38,7 +47,23 @@ function addProtocol(url: string) {
 function hasValidProtocol(url: string) {
   try {
     const parsedUrl = new URL(url);
-    return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
+    return (
+      parsedUrl.protocol === 'http:' ||
+      parsedUrl.protocol === 'https:' ||
+      parsedUrl.protocol === 'localhost:'
+    );
+  } catch {
+    return true;
+  }
+}
+
+function hasProtocol(url: string) {
+  try {
+    const parsedUrl = new URL(url);
+    if (parsedUrl.protocol === 'localhost:') {
+      return false;
+    }
+    return parsedUrl.protocol.length > 0;
   } catch {
     return false; // Invalid URL
   }
@@ -73,6 +98,7 @@ const handleRememberMe = () => {
         type="text"
         v-model.trim="rpcUrl"
         @input="handleRpcUrlInput"
+        @keyup.enter="handleConnect"
         placeholder="ex. https://fullnode.com/api-key"
       />
       <button class="btn" @click="handleConnect">Connect</button>
@@ -81,8 +107,9 @@ const handleRememberMe = () => {
       <Checkbox @onChange="handleRememberMe" :checked="remember" label="Remember URL" />
     </div>
     <div v-if="connectionError" class="error">
-      Connection error. Please check your RPC URL or internet connection and try again.
+      Connection error. Please check your RPC URL or internet connection and try again. <br />
     </div>
+    <div v-if="error" class="error">Invalid URL. Only http(s) RPC endpoints are supported.</div>
   </div>
 </template>
 
