@@ -16,6 +16,10 @@ const props = defineProps<{
   sumUnspentEthUsd: number;
   showErigonTokensWarning: boolean;
   loadingUnspent: boolean;
+  tokensError: boolean;
+  tokensPricesError: boolean;
+  unspentPriceError: boolean;
+  unspentError: boolean;
 }>();
 
 const handleUpdateData = () => {
@@ -48,7 +52,11 @@ const handleDeleteFavorite = (address: string) => {
     />
   </div>
 
-  <div><b>Transactions Sent (non contracts):</b> {{ sumUnspentTxns }}</div>
+  <div><b>Transactions Sent (non contracts):</b> {{ unspentError ? 0 : sumUnspentTxns }}</div>
+  <div v-if="unspentError" class="warning txns-sent-warning">
+    <i class="bi bi-exclamation-triangle"></i>
+    Value may not be accurate. Erigon OTS namespace is disabled.
+  </div>
 
   <TokensList
     :tokens="tokens"
@@ -58,6 +66,10 @@ const handleDeleteFavorite = (address: string) => {
     :showErigonTokensWarning="showErigonTokensWarning"
     :showErigonPricesWarning="false"
     :loadingUnspent="loadingUnspent"
+    :tokensError="tokensError"
+    :tokensPricesError="tokensPricesError"
+    :unspentPriceError="unspentPriceError"
+    :unspentError="unspentError"
   />
 </template>
 
@@ -106,5 +118,10 @@ const handleDeleteFavorite = (address: string) => {
     margin-left: 0;
     margin-right: 7px;
   }
+}
+
+.txns-sent-warning {
+  margin-top: -5px;
+  font-size: 17px;
 }
 </style>

@@ -5,6 +5,7 @@ export const useAppStore = defineStore('app', () => {
   const networkName = ref('');
   const rpcUrl = ref('');
   const isErigon = ref(false);
+  const otsApiError = ref(false);
 
   function setNetworkName(name: string) {
     networkName.value = name;
@@ -18,5 +19,18 @@ export const useAppStore = defineStore('app', () => {
     isErigon.value = value;
   }
 
-  return { setNetworkName, networkName, setRpcUrl, rpcUrl, setIsErigon, isErigon };
+  function setOtsApiError(value: boolean) {
+    otsApiError.value = value;
+  }
+
+  return {
+    setNetworkName,
+    networkName,
+    setRpcUrl,
+    rpcUrl,
+    setIsErigon,
+    isErigon,
+    otsApiError,
+    setOtsApiError,
+  };
 });

@@ -19,6 +19,17 @@ export class MainPageCache {
     return MainPageCache.instance;
   }
 
+  clear(): void {
+    this.gasPriceGwei = '';
+    this.maxPriorityFeeGwei = '';
+    this.favoriteAddresses = [];
+    this.favoriteTxns = [];
+    this.lastBlocks = [];
+    this.lastTxns = [];
+    this.ethPrice = 0;
+    this.lastUpdateTimestamp = 0;
+  }
+
   hasData(): boolean {
     // favoriteAddresses and favoriteTxns are not checked, because they may be empty
     return (

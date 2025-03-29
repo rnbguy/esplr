@@ -4,6 +4,7 @@ defineProps<{
   isLastPage: boolean;
   loadingPage: boolean;
   currentPage: number;
+  disabled: boolean;
 }>();
 
 const emit = defineEmits(['openPage']);
@@ -17,19 +18,27 @@ const openPage = async (page: string) => {
   <div class="pagination">
     <button
       @click="() => openPage('first')"
-      :class="['btn', 'btn-dark', 'btn-pag', { disabled: isFirstPage }]"
-      :disabled="isFirstPage || loadingPage"
+      :class="['btn', 'btn-dark', 'btn-pag', { disabled: isFirstPage || disabled }]"
+      :disabled="isFirstPage || loadingPage || disabled"
     >
       First
     </button>
     <button
       @click="() => openPage('prev')"
-      :class="['btn', 'btn-dark', 'btn-pag', 'btn-pag-arrow', { disabled: isFirstPage }]"
-      :disabled="isFirstPage || loadingPage"
+      :class="[
+        'btn',
+        'btn-dark',
+        'btn-pag',
+        'btn-pag-arrow',
+        { disabled: isFirstPage || disabled },
+      ]"
+      :disabled="isFirstPage || loadingPage || disabled"
     >
       <i class="bi bi-chevron-left"></i>
     </button>
-    <span :class="['btn', 'btn-dark', 'btn-pag', { disabled: isFirstPage && isLastPage }]">
+    <span
+      :class="['btn', 'btn-dark', 'btn-pag', { disabled: (isFirstPage && isLastPage) || disabled }]"
+    >
       <span v-if="loadingPage" class="pages">
         <span>Page</span>
         <span v-if="loadingPage" class="spinner"></span>
@@ -38,15 +47,15 @@ const openPage = async (page: string) => {
     </span>
     <button
       @click="() => openPage('next')"
-      :class="['btn', 'btn-dark', 'btn-pag', 'btn-pag-arrow', { disabled: isLastPage }]"
-      :disabled="isLastPage || loadingPage"
+      :class="['btn', 'btn-dark', 'btn-pag', 'btn-pag-arrow', { disabled: isLastPage || disabled }]"
+      :disabled="isLastPage || loadingPage || disabled"
     >
       <i class="bi bi-chevron-right"></i>
     </button>
     <button
       @click="() => openPage('last')"
-      :class="['btn', 'btn-dark', 'btn-pag', { disabled: isLastPage }]"
-      :disabled="isLastPage || loadingPage"
+      :class="['btn', 'btn-dark', 'btn-pag', { disabled: isLastPage || disabled }]"
+      :disabled="isLastPage || loadingPage || disabled"
     >
       Last
     </button>

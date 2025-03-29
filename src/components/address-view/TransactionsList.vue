@@ -2,6 +2,9 @@
 import type { TransactionListItem } from '@/types';
 import TransactionsListItem from '@/components/address-view/TransactionsListItem.vue';
 import TransactionsPagination from '@/components/address-view/TransactionsPagination.vue';
+import { useAppStore } from '@/stores/app';
+
+const appStore = useAppStore();
 
 const emit = defineEmits(['loadTokensTransfers', 'loadInternalTransactions', 'openPage']);
 
@@ -36,15 +39,7 @@ const openPage = async (page: string) => {
 </script>
 
 <template>
-  <h4 class="blocks-header"></h4>
-
-  <div v-if="showErigonInternalTxnsWarning">
-    <div class="warning">
-      Only Erigon RPC is supported for loading transactions from high active addresses.
-    </div>
-  </div>
-
-  <div v-if="!showErigonInternalTxnsWarning">
+  <div class="transactions">
     <div class="txns-header">
       <div>
         <span
@@ -62,63 +57,61 @@ const openPage = async (page: string) => {
         </span>
       </div>
       <TransactionsPagination
+        @openPage="openPage"
+        :isFirstPage
+        :isLastPage
+        :loadingPage
+        :currentPage
+        :disabled="appStore.otsApiError || loadingTxns"
+      />
+    </div>
+
+    <div class="warning">
+      <i v-if="warning.length" class="bi bi-info-circle"></i>
+      {{ warning }}
+    </div>
+
+    <div v-if="showErigonDetailsTxnsWarning" class="warning">
+      Only Erigon RPC is supported for loading token transfers (for addresses under 10K txns)
+    </div>
+
+    <div v-if="appStore.otsApiError" class="warning ots-api-warning">
+      <i class="bi bi-exclamation-triangle"></i>
+      Transactions can not be loaded because. Erigon OTS namespace is disabled.
+    </div>
+
+    <div v-if="!appStore.otsApiError">
+      <div v-if="!loadingTxns">
+        <div class="latest-transactions">
+          <TransactionsListItem
+            v-for="t in transactions"
+            :address="address"
+            :transactions="t"
+            :key="t[0].hash"
+            :isDetailsTab="activeTab === 'details'"
+          />
+        </div>
+      </div>
+      <TransactionsPagination
         v-if="!loadingTxns"
         @openPage="openPage"
         :isFirstPage
         :isLastPage
         :loadingPage
         :currentPage
+        :disabled="false"
       />
     </div>
-
-    <div class="warning">
-      {{ warning }}
-    </div>
-
-    <div v-if="showErigonDetailsTxnsWarning">
-      <div class="warning">
-        Only Erigon RPC is supported for loading token transfers (for addresses under 10K txns)
-      </div>
-    </div>
-
-    <div v-if="!loadingTxns">
-      <div class="latest-transactions">
-        <TransactionsListItem
-          v-for="t in transactions"
-          :address="address"
-          :transactions="t"
-          :key="t[0].hash"
-          :isDetailsTab="activeTab === 'details'"
-        />
-      </div>
-    </div>
-    <TransactionsPagination
-      v-if="!loadingTxns"
-      @openPage="openPage"
-      :isFirstPage
-      :isLastPage
-      :loadingPage
-      :currentPage
-    />
   </div>
 
-  <div class="loading-txns" v-if="loadingTxns">
+  <div class="loading-txns" v-if="loadingTxns && !appStore.otsApiError">
     <span>Loading transactions</span> <span class="spinner"></span>
   </div>
 </template>
 
 <style scoped>
-.warning {
-  font-size: 17px;
-  margin-top: 3px;
-}
-
-.blocks-header {
+.transactions {
   margin-top: 20px;
-  margin-bottom: 15px;
-  display: flex;
-  align-items: center;
-  gap: 7px;
 }
 
 .txns-header {
@@ -169,5 +162,14 @@ const openPage = async (page: string) => {
   display: flex;
   align-items: center;
   gap: 7px;
+}
+
+.warning {
+  font-size: 17px;
+  margin-top: 3px;
+}
+
+.ots-api-warning {
+  margin-top: 10px;
 }
 </style>

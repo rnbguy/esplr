@@ -29,7 +29,7 @@ const handleConnect = async (url: string) => {
       },
     }),
     url,
-    { batchSize: 100 }
+    { batchSize: 25 }
   );
   provider.value = new Web3Provider(j);
   try {

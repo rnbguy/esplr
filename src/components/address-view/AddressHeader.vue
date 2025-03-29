@@ -19,6 +19,10 @@ const props = defineProps<{
   showErigonTokensWarning: boolean;
   showErigonPricesWarning: boolean;
   loadingUnspent: boolean;
+  tokensError: boolean;
+  tokensPricesError: boolean;
+  unspentPriceError: boolean;
+  unspentError: boolean;
 }>();
 
 const handleUpdateData = (addresses: string[]) => {
@@ -34,6 +38,7 @@ const handleUpdateData = (addresses: string[]) => {
       :lastUpdateTimestamp="lastUpdateTimestamp"
       :isContract="!!props.tokenCreator"
       :loadingUnspent="loadingUnspent"
+      :unspentError="unspentError"
       @updateData="handleUpdateData"
     />
   </div>
@@ -64,6 +69,10 @@ const handleUpdateData = (addresses: string[]) => {
       :loadingTokens="loadingTokens"
       :showErigonTokensWarning="showErigonTokensWarning"
       :showErigonPricesWarning="showErigonPricesWarning"
+      :tokensError="tokensError"
+      :tokensPricesError="tokensPricesError"
+      :unspentPriceError="unspentPriceError"
+      :unspentError="unspentError"
     />
   </div>
 </template>

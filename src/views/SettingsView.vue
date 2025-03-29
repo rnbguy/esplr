@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { AddressCache } from '@/cache';
+import { MainPageCache } from '@/cache/mainPage';
 import Checkbox from '@/components/Checkbox.vue';
 import { useAppStore } from '@/stores/app';
 import { useSettingsStore } from '@/stores/settings';
 
 const cashedAddresses = ref<string[]>([]);
 const cache = AddressCache.getInstance();
+const mainDataCache = MainPageCache.getInstance();
 
 const settingsStore = useSettingsStore();
 const appStore = useAppStore();
@@ -25,6 +27,7 @@ const handleDisconnect = async () => {
 
 const handleClearCache = () => {
   cache.clear();
+  mainDataCache.clear();
   cashedAddresses.value = [];
 };
 

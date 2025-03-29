@@ -2,7 +2,9 @@
 import { onBeforeUpdate, onMounted, ref } from 'vue';
 import { formatTimestampLocalWithoutYear } from '@/utils/utils';
 import { AddressCache } from '@/cache';
+import { useAppStore } from '@/stores/app';
 
+const appStore = useAppStore();
 const emit = defineEmits(['updateData']);
 const cache = AddressCache.getInstance();
 const isFavorite = ref(false);
@@ -13,6 +15,7 @@ const props = defineProps<{
   lastUpdateTimestamp: number;
   loadingUnspent: boolean;
   isContract: boolean;
+  unspentError: boolean;
 }>();
 
 onMounted(() => {
@@ -44,7 +47,7 @@ const toggleFavorite = () => {
         <b>Address:</b>
         {{ address }}
       </div>
-      <div v-if="isContract" class="contract-notice warning">
+      <div v-if="isContract" class="warning">
         <i class="bi bi-info-circle"></i> Contract address
       </div>
 
@@ -52,8 +55,15 @@ const toggleFavorite = () => {
         <b>Transactions Sent:</b>
         <span v-if="loadingUnspent" class="spinner"></span>
         <span v-else>
-          {{ sumUnspentTxns }}
+          {{ unspentError ? 0 : sumUnspentTxns }}
         </span>
+      </div>
+      <div
+        v-if="(appStore.otsApiError && !isContract) || unspentError"
+        class="warning txns-sent-warning"
+      >
+        <i class="bi bi-exclamation-triangle"></i>
+        Value may not be accurate. Erigon OTS namespace is disabled.
       </div>
 
       <div class="actions">
@@ -148,5 +158,10 @@ const toggleFavorite = () => {
   display: flex;
   align-items: center;
   gap: 5px;
+}
+
+.txns-sent-warning {
+  margin-top: -5px;
+  font-size: 17px;
 }
 </style>

@@ -14,7 +14,7 @@ Etherscan and other other 3rd party block explorers collect and track user data.
 
 > How is this better than [Otterscan](https://github.com/otterscan/otterscan)?
 
-Otterscan is also local, but it does not support token balances or transfer history, which makes it very limited in usefulness. ERC20 / ERC721 / ERC1155 tokens & NFTs are one of the most popular features of EVM-like blockchains.
+Otterscan is local, but it does not support token balances or transfer history, which makes it limited in usefulness. ERC20 / ERC721 / ERC1155 tokens & NFTs are one of the most popular features of EVM-like blockchains.
 
 > Can I verify all network requests?
 
@@ -24,13 +24,17 @@ ensure no requests are done outside of the URL. You can add custom logging there
 
 > How are USD prices calculated?
 
-No external services are used: Chainlink EVM contract provides everything needed.
+Chainlink EVM contract provides onchain prices. No external services are used.
 
 > Are ERC-20 tokens fully supported?
 
 Yes. To view full token transfer history for an account, open tx Details tab.
-It can take up to 50 seconds because of limitations of ETH nodes.
-Basically, nodes don't build proper indexes, and full blockchain is scanned.
+First call can take up to 50 seconds because of [limitations of ETH nodes](#speed).
+Second call would be cached and instant.
+
+> Are ERC-721 NFTs fully supported?
+
+Almost. They will be shown in UI in one of the next updates.
 
 > Which frontend libraries are used?
 
@@ -56,13 +60,13 @@ npm install && npm run build
 cd dist && python3 -m http.server --bind 127.0.0.1
 ```
 
-The output is 5 files in `dist`: 1 html, 1 js, 1 css, 2 woff icons.
+The output is 3 files in `dist`: 1 html, 1 js, 1 css.
 
 ## RPC requirements
 
-Esprl currently only supports user-ran Erigon 3 RPC nodes and may support [Reth](https://github.com/paradigmxyz/reth) soon. See [Hardware reqs](#hardware-requirements).
+Esprl currently only supports user-ran [Erigon](https://github.com/erigontech/erigon) RPC nodes and may support [Reth](https://github.com/paradigmxyz/reth) soon. See [Hardware reqs](#hardware-requirements).
 
-[Download](https://github.com/erigontech/erigon/releases) Erigon 3 binary / source code and start it:
+Download [Erigon 3 binary](https://github.com/erigontech/erigon/releases) / source code and start it:
 
 ```sh
 erigon --datadir=/data/erigon --prune.mode='archive' --torrent.download.rate="100mb" --http --http.api=eth,erigon,web3,net,debug,trace,txpool,ots --ws --http.corsdomain='*'
@@ -83,10 +87,24 @@ Why aren't other RPCs supported? The app uses archive node API / `trace_filter` 
 
 - Erigon 3 works properly with `prune.mode=archive`
 - Geth, Nethermind do not have proper archive mode, so they are not supported
-- Reth is not supported, because it limits trace_filter to 10k blocks. They indicated
+- Reth is not supported, because it doesn't have token indexes like Erigon. They indicated
   willingness to fix the issue: see [#4799](https://github.com/paradigmxyz/reth/issues/4799)
 - 3rd party nodes (infura / alchemy / quicknode) are not supported: they limit
   trace_filter API massively even if Erigon backend is selected.
+
+### Speed
+
+Most requests are instant. Some requests, like seeing token transfer history, rely on
+scanning whole blockchain from scratch. This can take 10-60 seconds.
+
+To improve this, in the future, archive node developers can add
+additional indexes into their software. They can also provide a new RPC method
+to query history. Best thing one can do is to ask for this in their bug trackers:
+[1](https://github.com/erigontech/erigon/issues), [2](https://github.com/paradigmxyz/reth/issues/4799).
+
+Addons, like [Trueblocks](https://trueblocks.io), can also speed things up.
+While the goal of esplr is to use "pure" archive node, we would welcome support for
+an easy trueblocks integration.
 
 ### Hardware requirements
 

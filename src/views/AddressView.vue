@@ -76,6 +76,11 @@ const showErigonPricesWarning = ref(false);
 const showErigonInternalTxnsWarning = ref(false);
 const showErigonDetailsTxnsWarning = ref(false);
 
+const tokensError = ref(false);
+const tokensPricesError = ref(false);
+const unspentError = ref(false);
+const unspentPriceError = ref(false);
+
 watch(
   () => route.params.address,
   async (newAddress) => {
@@ -146,26 +151,23 @@ const setUpdatingAddressStatus = () => {
 
 const mount = async (addresses: string[]) => {
   clearState();
-
-  const pageDataPromises = [];
   address.value = addresses[0];
 
-  const unspentPromise = loadUnspentWithContractDetails(addresses);
-  pageDataPromises.push(unspentPromise);
+  setLoadingUnspent(true);
+  setLoadingTxns(true);
+  setLoadingTokens(true);
 
-  let txnsPromise = null;
+  await loadUnspentWithContractDetails(addresses);
+
   if (activeTab.value === 'internal') {
-    txnsPromise = loadAddressesTransactions(addresses);
+    await loadAddressesTransactions(addresses);
   } else if (activeTab.value === 'details') {
     // TODO: make loading transfers for favorites too, not only for single address
-    txnsPromise = loadTransfers(addresses[0]);
+    await loadTransfers(addresses[0]);
   }
-  pageDataPromises.push(txnsPromise);
 
-  const tokensPromise = loadAddressesTokens(addresses);
-  pageDataPromises.push(tokensPromise);
+  await loadAddressesTokens(addresses);
 
-  await Promise.all(pageDataPromises);
   refreshUpdatedAt(addresses);
 };
 
@@ -190,22 +192,43 @@ const getAddrUnspent = async (address: string) => {
   if (cache.hasUnspent(address)) {
     const unspent = cache.getUnspent(address) ?? null;
     if (settingsStore.showUsdPrices && unspent && !unspent.usdBalance) {
-      await injectUsdToUnspent(unspent);
-      cache.addUnspent(address, unspent);
+      try {
+        await injectUsdToUnspent(unspent);
+        cache.addUnspent(address, unspent);
+      } catch (error) {
+        unspentPriceError.value = true;
+        console.error(error);
+      }
     }
     return unspent;
   }
 
-  const unspent = (await prov.unspent(address)) as UnspentWithUsd;
-  if (settingsStore.showUsdPrices && unspent) {
-    await injectUsdToUnspent(unspent);
+  let unspent: UnspentWithUsd | null = null;
+  try {
+    unspent = (await prov.unspent(address)) as UnspentWithUsd;
+    cache.addUnspent(address, unspent);
+  } catch (error) {
+    unspentError.value = true;
+    console.error(error);
   }
-  cache.addUnspent(address, unspent);
+
+  if (settingsStore.showUsdPrices && unspent) {
+    try {
+      await injectUsdToUnspent(unspent);
+      cache.addUnspent(address, unspent);
+    } catch (error) {
+      unspentPriceError.value = true;
+      console.error(error);
+    }
+  }
+
   return unspent;
 };
 
 const loadUnspentWithContractDetails = async (addresses: string[]) => {
   setLoadingUnspent(true);
+  unspentPriceError.value = false;
+  unspentError.value = false;
 
   const allUnspent = await Promise.all(
     addresses.map(async (address: string) => {
@@ -225,8 +248,13 @@ const loadUnspentWithContractDetails = async (addresses: string[]) => {
     favorites.value = allUnspent;
   } else {
     const { contractCreator, address } = allUnspent[0];
-    if (contractCreator) {
-      tokenInfo.value = await getTokenInfo(address);
+    if (contractCreator || appStore.otsApiError) {
+      // anyway info and creator will be null if there are no data
+      try {
+        tokenInfo.value = await getTokenInfo(address);
+      } catch (error) {
+        console.error(error);
+      }
       tokenCreator.value = contractCreator;
     }
   }
@@ -256,9 +284,15 @@ const getContractCreator = async (address: string) => {
   if (cache.hasTokenCreator(address)) {
     return cache.getTokenCreator(address) ?? null;
   }
-  const creator = await prov.call('ots_getContractCreator', address);
-  cache.addTokenCreator(address, creator);
-  return creator ? creator : null;
+  let creator = null;
+  try {
+    creator = await prov.call('ots_getContractCreator', address);
+    cache.addTokenCreator(address, creator);
+  } catch (error) {
+    appStore.setOtsApiError(true);
+    console.error('OTS api Error.', error);
+  }
+  return creator;
 };
 
 const getTokenInfo = async (address: string) => {
@@ -282,21 +316,29 @@ const loadAddressesTransactions = async (addresses: string[]) => {
     }
   }
 
-  transactionsList.value = await favoritesPagination.showFirstPage(addresses, cachedTxns);
-  // TODO: make caching for favorites too
-  if (!isFavorites.value) {
-    cache.addInternalTransactions(
-      addresses[0],
-      favoritesPagination.currentPageTxns.concat(favoritesPagination.nextPageReminder)
-    );
+  try {
+    transactionsList.value = await favoritesPagination.showFirstPage(addresses, cachedTxns);
+    // TODO: make caching for favorites too
+    if (!isFavorites.value) {
+      cache.addInternalTransactions(
+        addresses[0],
+        favoritesPagination.currentPageTxns.concat(favoritesPagination.nextPageReminder)
+      );
+    }
+    updatePagesState(favoritesPagination);
+  } catch (error) {
+    appStore.setOtsApiError(true);
+    console.error('OTS api Error.', error);
   }
-  updatePagesState(favoritesPagination);
 
   setLoadingTxns(false);
 };
 
 const loadAddressesTokens = async (addresses: string[]) => {
   setLoadingTokens(true);
+
+  tokensError.value = false;
+  tokensPricesError.value = false;
 
   if (cache.hasTokensForEveryAddress(addresses)) {
     const cached = cache.getTokensForAddresses(addresses);
@@ -310,9 +352,14 @@ const loadAddressesTokens = async (addresses: string[]) => {
       }
 
       if (!allHasPrice) {
-        const cachedWithUsd = await injectUsdPricesToTokenBalances(cached);
-        for (const [addr, tokens] of cachedWithUsd) {
-          cache.addTokens(addr, tokens);
+        try {
+          const cachedWithUsd = await injectUsdPricesToTokenBalances(cached);
+          for (const [addr, tokens] of cachedWithUsd) {
+            cache.addTokens(addr, tokens);
+          }
+        } catch (error) {
+          console.error(error);
+          tokensPricesError.value = true;
         }
       }
     }
@@ -325,23 +372,44 @@ const loadAddressesTokens = async (addresses: string[]) => {
 
   const results = await Promise.all(
     addresses.map(async (addr) => {
-      const positiveBalances = await getPositiveTokenBalances(prov, addr);
-      const results = await loadTokenInfoByBalances(prov, positiveBalances);
-      const tokens = results.filter((item) => item.info !== null && item.balance !== null);
-      return [addr, tokens];
+      try {
+        const positiveBalances = await getPositiveTokenBalances(prov, addr);
+        const results = await loadTokenInfoByBalances(prov, positiveBalances);
+        const tokens = results.filter((item) => item.info !== null && item.balance !== null);
+        return [addr, tokens];
+      } catch (error) {
+        console.error(error);
+        return null;
+      }
     })
   );
 
-  let resultsMap = new Map<string, TokenBalance[]>();
-  for (const [addr, tokens] of results) {
-    resultsMap.set(addr as string, tokens as TokenBalance[]);
-  }
-  if (settingsStore.showUsdPrices) {
-    resultsMap = await injectUsdPricesToTokenBalances(resultsMap);
+  const filteredResults = results.filter((item) => item !== null);
+  if (!filteredResults.length) {
+    tokensError.value = true;
+    setLoadingTokens(false);
+    return;
   }
 
-  for (const [addr, tokens] of resultsMap) {
-    cache.addTokens(addr, tokens);
+  let resultsMap = new Map<string, TokenBalance[]>();
+  for (const [addr, tokens] of filteredResults) {
+    resultsMap.set(addr as string, tokens as TokenBalance[]);
+  }
+
+  if (settingsStore.showUsdPrices) {
+    try {
+      resultsMap = await injectUsdPricesToTokenBalances(resultsMap);
+      for (const [addr, tokens] of resultsMap) {
+        cache.addTokens(addr, tokens);
+      }
+    } catch (error) {
+      console.error(error);
+      tokensPricesError.value = true;
+    }
+  } else {
+    for (const [addr, tokens] of resultsMap) {
+      cache.addTokens(addr, tokens);
+    }
   }
 
   tokens.value = caclculateTokensSumBalances(resultsMap);
@@ -578,6 +646,10 @@ const deleteFavorite = async (address: string) => {
     :showErigonTokensWarning="showErigonTokensWarning"
     :showErigonPricesWarning="showErigonPricesWarning"
     :loadingUnspent="loadingUnspent"
+    :tokensError="tokensError"
+    :tokensPricesError="tokensPricesError"
+    :unspentPriceError="unspentPriceError"
+    :unspentError="unspentError"
     @updateData="updateData"
   />
   <FavoritesHeader
@@ -591,6 +663,10 @@ const deleteFavorite = async (address: string) => {
     :sumUnspentEthUsd="sumUnspentEthUsd"
     :showErigonTokensWarning="showErigonTokensWarning"
     :loadingUnspent="loadingUnspent"
+    :tokensError="tokensError"
+    :tokensPricesError="tokensPricesError"
+    :unspentPriceError="unspentPriceError"
+    :unspentError="unspentError"
     @updateData="updateData"
     @deleteFavorite="deleteFavorite"
   />
