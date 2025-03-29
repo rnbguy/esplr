@@ -21,6 +21,7 @@ const props = defineProps<{
   paginationOn: boolean;
   showErigonInternalTxnsWarning: boolean;
   showErigonDetailsTxnsWarning: boolean;
+  noAddresses: boolean;
 }>();
 
 const handleTokenTransfersClick = () => {
@@ -62,7 +63,7 @@ const openPage = async (page: string) => {
         :isLastPage
         :loadingPage
         :currentPage
-        :disabled="appStore.otsApiError || loadingTxns"
+        :disabled="appStore.otsApiError || loadingTxns || noAddresses"
       />
     </div>
 
@@ -77,10 +78,10 @@ const openPage = async (page: string) => {
 
     <div v-if="appStore.otsApiError" class="warning ots-api-warning">
       <i class="bi bi-exclamation-triangle"></i>
-      Transactions can not be loaded because. Erigon OTS namespace is disabled.
+      Transactions can not be loaded. Erigon OTS namespace is disabled.
     </div>
 
-    <div v-if="!appStore.otsApiError">
+    <div v-if="!appStore.otsApiError && !noAddresses">
       <div v-if="!loadingTxns">
         <div class="latest-transactions">
           <TransactionsListItem

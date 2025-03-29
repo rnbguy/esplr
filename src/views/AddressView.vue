@@ -81,6 +81,9 @@ const tokensPricesError = ref(false);
 const unspentError = ref(false);
 const unspentPriceError = ref(false);
 
+// TODO: temp
+const noAddresses = ref(false);
+
 watch(
   () => route.params.address,
   async (newAddress) => {
@@ -100,6 +103,7 @@ const clearState = () => {
   sumBalance.value = 0n;
   sumUnspentEthUsd.value = 0;
   favorites.value = [];
+  noAddresses.value = false;
 };
 
 const showOfflineNotice = () => {
@@ -327,8 +331,12 @@ const loadAddressesTransactions = async (addresses: string[]) => {
     }
     updatePagesState(favoritesPagination);
   } catch (error) {
-    appStore.setOtsApiError(true);
-    console.error('OTS api Error.', error);
+    if (!addresses.length) {
+      noAddresses.value = true;
+    } else {
+      appStore.setOtsApiError(true);
+      console.error('OTS api Error.', error);
+    }
   }
 
   setLoadingTxns(false);
@@ -667,6 +675,7 @@ const deleteFavorite = async (address: string) => {
     :tokensPricesError="tokensPricesError"
     :unspentPriceError="unspentPriceError"
     :unspentError="unspentError"
+    :noAddresses="noAddresses"
     @updateData="updateData"
     @deleteFavorite="deleteFavorite"
   />
@@ -684,6 +693,7 @@ const deleteFavorite = async (address: string) => {
     :paginationOn="!isFavorites"
     :showErigonInternalTxnsWarning="showErigonInternalTxnsWarning"
     :showErigonDetailsTxnsWarning="showErigonDetailsTxnsWarning"
+    :noAddresses="noAddresses"
     @loadTokensTransfers="loadTokensTransfers"
     @loadInternalTransactions="loadInternalTransactions"
     @openPage="openPage"

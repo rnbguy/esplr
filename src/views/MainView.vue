@@ -49,6 +49,7 @@ const prov = ref<Web3Provider>(provider.value);
 const favoriteTxns = ref<TransactionListItem[][]>([]);
 const favoriteAddresses = ref<string[]>([]);
 const addressCache = AddressCache.getInstance();
+const favoriteAddressesError = ref(false);
 
 const loadingData = ref(false);
 const mainDataCache = MainPageCache.getInstance();
@@ -69,7 +70,8 @@ const mount = async () => {
   const hasCache = showPrices ? mainDataCache.hasDataWithPrice() : mainDataCache.hasData();
 
   if (hasCache && !timeToUpdate && !updateRequested) {
-    return laodDataFromCache();
+    await laodDataFromCache();
+    return;
   }
 
   setLoadingData(true);
@@ -122,16 +124,22 @@ const mount = async () => {
   setLoadingData(false);
 };
 
-const updateFavoritesFromCache = () => {
+const updateFavoritesFromCache = async () => {
   const newFavoriteAddresses = Array.from(addressCache.getFavoriteAddresses());
+  let newFavoriteTxns: TransactionListItem[][] = [];
 
-  let cachedTxns: TransactionListItem[][] = [];
-  newFavoriteAddresses.forEach((address) => {
-    const txns = addressCache.getInternalTransactions(address) || [];
-    cachedTxns = cachedTxns.concat(txns);
-  });
-  const uniqueCachedTxns = removeTxnsListItemsDuplicates(cachedTxns);
-  const newFavoriteTxns = sortTxnsListItemsByTimestamp(uniqueCachedTxns).slice(0, LAST_TXNS_COUNT);
+  const hasFullCache = addressCache.hasInternalTransactionsForEveryAddress(newFavoriteAddresses);
+  if (hasFullCache) {
+    let cachedTxns: TransactionListItem[][] = [];
+    newFavoriteAddresses.forEach((address) => {
+      const txns = addressCache.getInternalTransactions(address) || [];
+      cachedTxns = cachedTxns.concat(txns);
+    });
+    const uniqueCachedTxns = removeTxnsListItemsDuplicates(cachedTxns);
+    newFavoriteTxns = sortTxnsListItemsByTimestamp(uniqueCachedTxns).slice(0, LAST_TXNS_COUNT);
+  } else {
+    newFavoriteTxns = await getNewFavoriteTxns(newFavoriteAddresses);
+  }
 
   favoriteAddresses.value = newFavoriteAddresses;
   favoriteTxns.value = newFavoriteTxns;
@@ -140,12 +148,22 @@ const updateFavoritesFromCache = () => {
 };
 
 const getNewFavoriteTxns = async (addresses: string[]) => {
-  const latestTxns = await getLastTxnsByAddresses(
-    prov.value as Web3Provider,
-    addresses,
-    LAST_TXNS_COUNT
-  );
-  return txnsWithBlockDetailsToTxnsList(latestTxns);
+  favoriteAddressesError.value = false;
+  if (!addresses.length) {
+    return [];
+  }
+  try {
+    const latestTxns = await getLastTxnsByAddresses(
+      prov.value as Web3Provider,
+      addresses,
+      LAST_TXNS_COUNT
+    );
+    return txnsWithBlockDetailsToTxnsList(latestTxns);
+  } catch (error) {
+    favoriteAddressesError.value = true;
+    console.error(error);
+    return [];
+  }
 };
 
 const setLoadingData = (loading: boolean) => {
@@ -163,7 +181,7 @@ const handleUpdateData = async () => {
   await mount();
 };
 
-const laodDataFromCache = () => {
+const laodDataFromCache = async () => {
   gasPriceGwei.value = mainDataCache.getGasPriceGwei();
   lastBlocks.value = mainDataCache.getLastBlocks();
   lastTxns.value = mainDataCache.getLastTxns();
@@ -175,7 +193,7 @@ const laodDataFromCache = () => {
   const actualFavorites = Array.from(addressCache.getFavoriteAddresses());
   const favoritesChanged = !stringArraysEqual(cachedMainPagefavorites, actualFavorites);
   if (favoritesChanged) {
-    updateFavoritesFromCache();
+    await updateFavoritesFromCache();
   } else {
     favoriteTxns.value = mainDataCache.getFavoriteTxns();
     favoriteAddresses.value = mainDataCache.getFavoriteAddresses();
@@ -210,6 +228,10 @@ const laodDataFromCache = () => {
     :block="lastBlocks[0]"
   />
 
+  <div v-if="favoriteAddressesError" class="warning">
+    <i class="bi bi-exclamation-triangle"></i>
+    Favorite transactions can not be loaded. Erigon OTS namespace is disabled.
+  </div>
   <Favorites
     v-if="favoriteTxns.length"
     :favoriteTxns="favoriteTxns"

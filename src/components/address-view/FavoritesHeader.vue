@@ -20,6 +20,7 @@ const props = defineProps<{
   tokensPricesError: boolean;
   unspentPriceError: boolean;
   unspentError: boolean;
+  noAddresses: boolean;
 }>();
 
 const handleUpdateData = () => {
@@ -50,6 +51,11 @@ const handleDeleteFavorite = (address: string) => {
       :favorites="favorites"
       @deleteFavorite="handleDeleteFavorite"
     />
+  </div>
+
+  <div v-if="noAddresses" class="warning">
+    <i class="bi bi-info-circle"></i>
+    Add some addresses to your favorites to see the info.
   </div>
 
   <div><b>Transactions Sent (non contracts):</b> {{ unspentError ? 0 : sumUnspentTxns }}</div>
