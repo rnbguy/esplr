@@ -56,8 +56,8 @@ const handleConnect = async (url: string) => {
   <RpcField v-if="!connected" :connectionError="connectionError" @connect="handleConnect" />
 
   <div v-if="!connected">
-    For the application to work correctly, an Erigon Node is required. Here you can find lists of
-    available RPCs for EVM networks. <br />
+    The app needs an archive node as a backend because of specific API calls.
+    <code>https://api.securerpc.com/v1</code> and other non-archive nodes from the list below can still be used, but the functionality would become limited:<br />
     <ul style="margin-top: 5px">
       <li>
         <a target="_blank" href="https://chainlist.org/chain/1">chainlist.org</a>
