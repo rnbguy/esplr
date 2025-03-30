@@ -7,6 +7,8 @@ Explore Ethereum-like blockchain privately with your RPC URL.
 - 💵 On-chain USD price conversion from oracles
 - 🪶 100KB gzipped. 3 files: 1 html, 1 css, 1 js
 
+![](https://github.com/user-attachments/assets/61bbfb4c-858c-4fee-8a25-ebb3871b8f70)
+
 ## Motivation
 
 > How is this better than [Etherscan](https://etherscan.io)?
