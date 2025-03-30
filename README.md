@@ -5,6 +5,7 @@ Explore Ethereum-like blockchain privately with your RPC URL.
 - 🔒 No 3rd party services: only private RPC requests
 - 💹 ETH and token balances, transaction history
 - 💵 On-chain USD price conversion from oracles
+- 🪶 100KB gzipped. 3 files: 1 html, 1 css, 1 js
 
 ## Motivation
 
@@ -14,7 +15,7 @@ Etherscan and other other 3rd party block explorers collect and track user data.
 
 > How is this better than [Otterscan](https://github.com/otterscan/otterscan)?
 
-Otterscan is local, but it does not support token balances or transfer history, which makes it limited in usefulness. ERC20 / ERC721 / ERC1155 tokens & NFTs are one of the most popular features of EVM-like blockchains.
+Otterscan does not support token balances or transfer history, which makes it limited in usefulness. ERC20 / ERC721 / ERC1155 tokens & NFTs are one of the most popular features of EVM-like blockchains. Besides that, Otterscan can only be used with one client while esplr strives to support all node types.
 
 > Can I verify all network requests?
 
@@ -34,7 +35,7 @@ Second call would be cached and instant.
 
 > Are ERC-721 NFTs fully supported?
 
-Almost. They will be shown in UI in one of the next updates.
+Work in progress. They will be shown in UI in one of the next updates.
 
 > Which frontend libraries are used?
 
@@ -44,7 +45,7 @@ Vue.js is used as UI framework.
 
 ## Setup
 
-To build the app, execute:
+To build the app and launch dev server, execute:
 
 ```sh
 npm install && npm run dev
@@ -62,45 +63,44 @@ cd dist && python3 -m http.server --bind 127.0.0.1
 
 The output is 3 files in `dist`: 1 html, 1 js, 1 css.
 
-## RPC requirements
+## Running RPC backend
 
-Esprl currently only supports user-ran [Erigon](https://github.com/erigontech/erigon) RPC nodes and may support [Reth](https://github.com/paradigmxyz/reth) soon. See [Hardware reqs](#hardware-requirements).
+Esplr supports all node types.
+User-ran [Erigon](https://github.com/erigontech/erigon) RPC node is adviced to get 100% of functionality.
+[Reth](https://github.com/paradigmxyz/reth) may achieve feature parity soon. See [details](#reth-geth-nethermind-infura).
 
-Download [Erigon 3 binary](https://github.com/erigontech/erigon/releases) / source code and start it:
+1. Download [Erigon](https://github.com/erigontech/erigon/releases) and start it:
 
 ```sh
 erigon --datadir=/data/erigon --prune.mode='archive' --torrent.download.rate="100mb" --http --http.api=eth,erigon,web3,net,debug,trace,txpool,ots --ws --http.corsdomain='*'
 ```
 
-Initial sync will take 8 hours for ETH mainnet on 100Mbps connection (slower ones can still be used). After that RPC will be ready.
-By default, RPC runs on port 8545. If computer which runs it is not the same one
-where RPC is accessed from, you will need to expose the port.
+2. Initial sync will take 8 hours for ETH mainnet on 100Mbps connection (slower ones can still be used). After that RPC will be running on port 8545.
 
-### Making app available on the internet
+The RPC will be running locally at 127.0.0.1:8545. There are two ways to make it available to outside internet:
 
-There are two ways to make app available:
-
-1. Install NGINX, do `proxy_pass http://127.0.0.1:8545`. You will probably need domain and SSL certificate. For example, if domain is `ethnode.com`, you will be able to specify its RPC.
-  It is suggested to use basic auth (user:password@ethnode.com).
-2. SSH tunneling: use SSH connection to forward port 8545 to your local machine:
+* Redirect e.g. `ethnode.com` to `127.0.0.1:8545`
+    - Can be achieved with NGINX: `proxy_pass http://127.0.0.1:8545`
+    - You will probably need domain and SSL certificate. For example, if domain is `ethnode.com`, you will be able to specify its RPC.
+    - It is suggested to use basic auth (`user:password@ethnode.com`).
+* Or, use SSH tunneling to forward port 8545 to your local machine:
    `ssh -L 5678:127.0.0.1:8545 root@192.168.1.50` where 5678 is port on your local machine,
    `root@192.168.1.50` is user + hostname of Erigon3 server.
 
-### Geth, Reth, Infura
+### Reth, Geth, Nethermind, Infura
 
-Why aren't other RPCs supported? The app uses archive node API / `trace_filter` extensively:
+Some features are not present outside of Erigon. The app uses archive node API / `trace_filter` extensively.
 
-- Erigon 3 works properly with `prune.mode=archive`
-- Geth, Nethermind do not have proper archive mode, so they are not supported
-- Reth is not supported, because it doesn't have token indexes like Erigon. They indicated
-  willingness to fix the issue: see [#4799](https://github.com/paradigmxyz/reth/issues/4799)
-- 3rd party nodes (infura / alchemy / quicknode) are not supported: they limit
-  trace_filter API massively even if Erigon backend is selected.
+- Self-hosted Erigon 3 works with `prune.mode=archive` for 100% of features
+- 3rd-party (infura / alchemy / quicknode) Erigon nodes have strict rate limits: tx history is not available
+- Reth nodes do not have tx history because of lack of indexes. They indicated
+  willingness to [fix the issue](https://github.com/paradigmxyz/reth/issues/4799)
+- Geth, Nethermind do not have proper low-resource archive mode, so they are not supported for querying tx history
 
 ### Speed
 
 Most requests are instant. Some requests, like seeing token transfer history, rely on
-scanning whole blockchain from scratch. This can take 10-60 seconds.
+scanning whole blockchain from scratch. This can take 10-50 seconds.
 
 To improve this, in the future, archive node developers can add
 additional indexes into their software. They can also provide a new RPC method
