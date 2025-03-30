@@ -115,9 +115,9 @@ an easy trueblocks integration.
 
 ### Hardware requirements
 
-An archive node will need 32GB ram, 2.5TB NVME SSD (TLC, not QLC),
-4-core CPU and 30Mbps connection. 64GB ram & 8-core CPU is more future-proof.
-Similar new PC [can cost $570](https://pcpartpicker.com/list/PbHHrM).
+An archive node will need 30Mbps connection & 2.5TB NVME SSD (TLC, not QLC).
+Similar new PC [can cost $570](https://pcpartpicker.com/list/PbHHrM) for 32GB RAM & 4-core CPU.
+Here is another [$650 build](https://pcpartpicker.com/list/zKthBq) with 64GB RAM & 8-core CPU.
 
 Similar server can be rented from providers like [Hetzner](https://www.hetzner.com) for ~$40 per month.
 Make sure to [prohibit private IPs in firewall](https://ethereum.stackexchange.com/questions/6386/how-to-prevent-being-blacklisted-for-running-an-ethereum-client/13068).
