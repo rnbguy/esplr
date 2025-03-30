@@ -116,14 +116,13 @@ an easy trueblocks integration.
 ### Hardware requirements
 
 An archive node will need 32GB ram, 2.5TB NVME SSD (TLC, not QLC),
-4-core CPU and 30Mbps connection.
-Similar new PC [can cost $570](https://pcpartpicker.com/list/PbHHrM). If you can spend additional money, 64GB ram and 8-core CPU can be future-proof, but won't improve token history fetching time.
+4-core CPU and 30Mbps connection. 64GB ram & 8-core CPU is more future-proof.
+Similar new PC [can cost $570](https://pcpartpicker.com/list/PbHHrM).
 
-Such server can be rented from providers like [Hetzner](https://www.hetzner.com) for ~$40 per month.
+Similar server can be rented from providers like [Hetzner](https://www.hetzner.com) for ~$40 per month.
 Make sure to [prohibit private IPs in firewall](https://ethereum.stackexchange.com/questions/6386/how-to-prevent-being-blacklisted-for-running-an-ethereum-client/13068).
 
-Macs are also supported.
-Fully validating non-archive node has much smaller storage requirements (<1TB).
+Fully validating non-archive node can have <1TB storage requirements. Check out [Ress](https://www.paradigm.xyz/2025/03/stateless-reth-nodes) and [EIP-7870](https://eips.ethereum.org/EIPS/eip-7870).
 
 ## License
 
