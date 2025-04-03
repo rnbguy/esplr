@@ -107,7 +107,7 @@ scanning whole blockchain from scratch. This can take 10-50 seconds.
 To improve this, in the future, archive node developers can add
 additional indexes into their software. They can also provide a new RPC method
 to query history. Best thing one can do is to ask for this in their bug trackers:
-[1](https://github.com/erigontech/erigon/issues), [2](https://github.com/paradigmxyz/reth/issues/4799).
+[reth](https://github.com/paradigmxyz/reth/issues/4799), [erigon](https://github.com/erigontech/erigon/issues).
 
 Addons, like [Trueblocks](https://trueblocks.io), can also speed things up.
 While the goal of esplr is to use "pure" archive node, we would welcome support for
@@ -116,10 +116,10 @@ an easy trueblocks integration.
 ### Hardware requirements
 
 An archive node will need 30Mbps connection & 2.5TB NVME SSD (TLC, not QLC).
-Similar new PC [can cost $570](https://pcpartpicker.com/list/PbHHrM) for 32GB RAM & 4-core CPU.
+Such new PC [can cost $570](https://pcpartpicker.com/list/PbHHrM) for 32GB RAM & 4-core CPU.
 Here is another [$650 build](https://pcpartpicker.com/list/zKthBq) with 64GB RAM & 8-core CPU.
 
-Similar server can be rented from providers like [Hetzner](https://www.hetzner.com) for ~$40 per month.
+Similar server can be rented from providers like [Hetzner](https://www.hetzner.com) for $60/mo.
 Make sure to [prohibit private IPs in firewall](https://ethereum.stackexchange.com/questions/6386/how-to-prevent-being-blacklisted-for-running-an-ethereum-client/13068).
 
 Fully validating non-archive node can have <1TB storage requirements. Check out [Ress](https://www.paradigm.xyz/2025/03/stateless-reth-nodes) and [EIP-7870](https://eips.ethereum.org/EIPS/eip-7870).
