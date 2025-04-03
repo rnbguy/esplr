@@ -9,7 +9,13 @@ import {
   loadTokenInfoByBalances,
   getPositiveTokenBalances,
 } from '@/utils/network';
-import { transfersToTxnsList, usdBalance, hasMinutesPassed } from '@/utils/utils';
+import {
+  transfersToTxnsList,
+  usdBalance,
+  hasMinutesPassed,
+  isUnspent,
+  isOtsContractCreator,
+} from '@/utils/utils';
 import type {
   ERC20TokenInfo,
   TransactionListItem,
@@ -188,6 +194,9 @@ const refreshUpdatedAt = (addresses: string[]) => {
 const injectUsdToUnspent = async (unspent: UnspentWithUsd) => {
   const link = new Chainlink(prov);
   const usdTokenPrice = await link.coinPrice('ETH');
+  if (usdTokenPrice <= 0) {
+    throw new Error('Invalid ETH price.');
+  }
   unspent.usdBalance = usdBalance(unspent.balance, ETH_DECIMALS, usdTokenPrice);
 };
 
@@ -209,7 +218,11 @@ const getAddrUnspent = async (address: string) => {
 
   let unspent: UnspentWithUsd | null = null;
   try {
-    unspent = (await prov.unspent(address)) as UnspentWithUsd;
+    const result = (await prov.unspent(address)) as UnspentWithUsd;
+    if (!isUnspent(result)) {
+      throw new Error('Invalid unspent data.');
+    }
+    unspent = result;
     cache.addUnspent(address, unspent);
   } catch (error) {
     unspentError.value = true;
@@ -290,7 +303,11 @@ const getContractCreator = async (address: string) => {
   }
   let creator = null;
   try {
-    creator = await prov.call('ots_getContractCreator', address);
+    const result = await prov.call('ots_getContractCreator', address);
+    if (result !== null && !isOtsContractCreator(result)) {
+      throw new Error('Invalid OTS contract creator data.');
+    }
+    creator = result;
     cache.addTokenCreator(address, creator);
   } catch (error) {
     appStore.setOtsApiError(true);
@@ -378,46 +395,38 @@ const loadAddressesTokens = async (addresses: string[]) => {
     return;
   }
 
-  const results = await Promise.all(
-    addresses.map(async (addr) => {
-      try {
+  let results: [string, TokenBalance[]][] = [];
+  try {
+    results = await Promise.all(
+      addresses.map(async (addr) => {
         const positiveBalances = await getPositiveTokenBalances(prov, addr);
-        const results = await loadTokenInfoByBalances(prov, positiveBalances);
-        const tokens = results.filter((item) => item.info !== null && item.balance !== null);
+        const tokens = await loadTokenInfoByBalances(prov, positiveBalances);
         return [addr, tokens];
-      } catch (error) {
-        console.error(error);
-        return null;
-      }
-    })
-  );
-
-  const filteredResults = results.filter((item) => item !== null);
-  if (!filteredResults.length) {
+      })
+    );
+  } catch (error) {
+    console.error(error);
     tokensError.value = true;
     setLoadingTokens(false);
     return;
   }
 
   let resultsMap = new Map<string, TokenBalance[]>();
-  for (const [addr, tokens] of filteredResults) {
+  for (const [addr, tokens] of results) {
     resultsMap.set(addr as string, tokens as TokenBalance[]);
   }
 
   if (settingsStore.showUsdPrices) {
     try {
       resultsMap = await injectUsdPricesToTokenBalances(resultsMap);
-      for (const [addr, tokens] of resultsMap) {
-        cache.addTokens(addr, tokens);
-      }
     } catch (error) {
       console.error(error);
       tokensPricesError.value = true;
     }
-  } else {
-    for (const [addr, tokens] of resultsMap) {
-      cache.addTokens(addr, tokens);
-    }
+  }
+
+  for (const [addr, tokens] of resultsMap) {
+    cache.addTokens(addr, tokens);
   }
 
   tokens.value = caclculateTokensSumBalances(resultsMap);
@@ -435,11 +444,11 @@ const injectUsdPricesToTokenBalances = async (
       cachedTokensPrices
     );
     tokensUsd.forEach((t) => {
-      if (t.usd?.price && t.info?.symbol) {
+      if (t.usd && t.usd.price) {
         cachedTokensPrices.set(t.info.symbol, t.usd.price);
       }
     });
-    resultsMap.set(addr as string, tokensUsd);
+    resultsMap.set(addr, tokensUsd);
   }
   return resultsMap;
 };
@@ -473,32 +482,27 @@ const injectUsdPriceToTokenBalances = async (
   cache: Map<string, number> | null = null
 ): Promise<TokenBalance[]> => {
   const link = new Chainlink(prov);
-  const tokenPrices = await Promise.all(
+  return await Promise.all(
     tokens.map(async (token) => {
-      let usd = null;
       let usdTokenPrice = null;
-      if (!token.info || !token.balance) {
-        return { ...token, usd: { balance: usd, price: usdTokenPrice } };
+      if (cache && cache.has(token.info.symbol)) {
+        usdTokenPrice = cache.get(token.info.symbol);
+      }
+      if (usdTokenPrice === null || usdTokenPrice === undefined) {
+        usdTokenPrice = await link.tokenPrice(token.info.symbol);
       }
 
-      if (token.info.symbol) {
-        if (cache && cache.has(token.info.symbol)) {
-          usdTokenPrice = cache.get(token.info.symbol) ?? 0;
-        } else {
-          usdTokenPrice = await link.tokenPrice(token.info.symbol);
-        }
-      } else {
-        usdTokenPrice = 0;
+      if (usdTokenPrice <= 0) {
+        throw new Error('Invalid token price.');
       }
 
       const balance = token.balance;
       const decimals = token.info.decimals;
-      usd = usdBalance(balance, decimals, usdTokenPrice);
+      const usd = usdBalance(balance, decimals, usdTokenPrice);
 
       return { ...token, usd: { balance: usd, price: usdTokenPrice } };
     })
   );
-  return tokenPrices;
 };
 
 const loadTransfers = async (address: string) => {

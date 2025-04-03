@@ -108,31 +108,37 @@ export const loadTokenInfoByBalances = async (
   prov: Web3Provider,
   balances: TokenBalances
 ): Promise<TokenBalance[]> => {
-  return await Promise.all(
+  const tokens = await Promise.all(
     Object.entries(balances).map(async ([token, erc20Balance]) => {
       const result = {
         token,
         balance: null as bigint | null,
         info: null as ERC20TokenInfo | null,
       };
+
       // accrording to micro-eth-signer format ERC20 balances are stored as Map([[1n, balance]])
-      if ('get' in erc20Balance) {
+      if (erc20Balance instanceof Map) {
         result.balance = erc20Balance.get(1n) ?? null;
       } else {
-        console.warn(`Error fetching token balance for token ${token}:`);
         result.balance = null;
       }
 
       try {
         result.info = await getERC20TokenInfo(prov, token);
       } catch (e) {
-        console.warn(`Error fetching token info for token ${token}:`, e);
         result.info = null;
       }
 
       return result;
     })
   );
+
+  const noData = tokens.some((t) => t.info === null || t.balance === null);
+  if (noData) {
+    throw new Error('Error fetching token info.');
+  }
+
+  return tokens as TokenBalance[];
 };
 
 export const getLastBlocksBefore = async (
@@ -218,13 +224,20 @@ export const getLastTxnsByAddresses = async (
 
 export const getPositiveTokenBalances = async (prov: Web3Provider, address: string) => {
   const balances = await prov.tokenBalances(address, Object.keys(TOKENS));
-  const positiveBalances = Object.fromEntries(
+
+  const noErrors = Object.values(balances).every((balance) => {
+    return balance instanceof Map && balance.get(1n) !== undefined;
+  });
+  if (!noErrors) {
+    throw new Error('Error fetching token balances.');
+  }
+
+  return Object.fromEntries(
     Object.entries(balances).filter(([, balance]) => {
-      // @ts-expect-error: balance might not be a Map if there is TokenError instead
-      return balance instanceof Map && balance?.get(1n) > 0n;
+      // @ts-expect-error: balance might not be a Map, but we check it above and throw an error
+      return balance instanceof Map && balance.get(1n) > 0n;
     })
   );
-  return positiveBalances;
 };
 
 export const getTokenTransfersForTxn = async (

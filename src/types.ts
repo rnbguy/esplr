@@ -122,6 +122,7 @@ export type ERC20TokenInfo = {
   name: string;
   symbol: string;
   decimals: number;
+  contract: string;
   totalSupply: bigint;
 };
 
@@ -139,8 +140,8 @@ export type TransactionListItem = {
 
 export type TokenBalance = {
   token: string;
-  balance: bigint | null;
-  info: ERC20TokenInfo | null;
+  balance: bigint;
+  info: ERC20TokenInfo;
   usd?: {
     price: number | null;
     balance: number | null;

@@ -12,6 +12,7 @@ import type {
   TokenTransfer,
   TxInfo,
   TxTransfers,
+  Unspent,
 } from 'node_modules/micro-eth-signer/net/archive';
 
 const SHOW_TXN_VALUE_PRECISION = 18;
@@ -204,11 +205,47 @@ export const isERC20TokenInfo = (info: unknown): info is ERC20TokenInfo => {
     info !== null &&
     typeof info === 'object' &&
     'abi' in info &&
+    info.abi === 'ERC20' &&
     'name' in info &&
+    info.name !== '' &&
     'symbol' in info &&
+    info.symbol !== '' &&
     'decimals' in info &&
+    typeof info.decimals === 'number' &&
+    info.decimals > 0 &&
     'contract' in info &&
-    'totalSupply' in info
+    info.contract !== '' &&
+    'totalSupply' in info &&
+    typeof info.totalSupply === 'bigint' &&
+    info.totalSupply > 0n
+  );
+};
+
+export const isUnspent = (data: unknown): data is Unspent => {
+  return (
+    data !== null &&
+    typeof data === 'object' &&
+    'symbol' in data &&
+    'decimals' in data &&
+    'balance' in data &&
+    'nonce' in data &&
+    'active' in data &&
+    data.symbol === 'ETH' &&
+    typeof data.decimals === 'number' &&
+    typeof data.balance === 'bigint' &&
+    typeof data.nonce === 'bigint' &&
+    typeof data.active === 'boolean'
+  );
+};
+
+export const isOtsContractCreator = (data: unknown): data is Unspent => {
+  return (
+    data !== null &&
+    typeof data === 'object' &&
+    'creator' in data &&
+    'hash' in data &&
+    data.creator !== '' &&
+    data.hash !== ''
   );
 };
 
