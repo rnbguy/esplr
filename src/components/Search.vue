@@ -52,8 +52,8 @@ const handleInput = () => {
   position: relative;
   display: flex;
   gap: 7px;
-  margin-top: 20px;
-  margin-bottom: 20px;
+  margin-top: 10px;
+  margin-bottom: 10px;
 }
 input {
   width: 100%;

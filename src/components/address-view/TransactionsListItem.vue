@@ -123,6 +123,7 @@ const handleCopy = (event: Event, text: string) => {
 .block-number {
   color: var(--ash-grey-lighter);
   margin-right: 5px;
+  word-break: break-word;
 }
 
 @media (prefers-color-scheme: dark) {

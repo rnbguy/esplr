@@ -77,9 +77,6 @@ const sumBalance = ref(0n);
 const sumUnspentEthUsd = ref(0);
 const loadingUnspent = ref(false);
 
-const showErigonTokensWarning = ref(false);
-const showErigonPricesWarning = ref(false);
-const showErigonInternalTxnsWarning = ref(false);
 const showErigonDetailsTxnsWarning = ref(false);
 
 const tokensError = ref(false);
@@ -99,6 +96,8 @@ watch(
 );
 
 const clearState = () => {
+  appStore.setOtsApiError(false);
+
   address.value = '';
   transactionsList.value = [];
   tokenCreator.value = null;
@@ -311,7 +310,7 @@ const getContractCreator = async (address: string) => {
     cache.addTokenCreator(address, creator);
   } catch (error) {
     appStore.setOtsApiError(true);
-    console.error('OTS api Error.', error);
+    console.error(error);
   }
   return creator;
 };
@@ -349,10 +348,11 @@ const loadAddressesTransactions = async (addresses: string[]) => {
     updatePagesState(favoritesPagination);
   } catch (error) {
     if (!addresses.length) {
+      // case when user removed all addresses on favorites page
       noAddresses.value = true;
     } else {
       appStore.setOtsApiError(true);
-      console.error('OTS api Error.', error);
+      console.error(error);
     }
   }
 
@@ -459,15 +459,23 @@ const caclculateTokensSumBalances = (tokensMap: Map<string, TokenBalance[]>): To
     allAddressesTokens = allAddressesTokens.concat(tokens as TokenBalance[]);
   }
 
+  let allTokensHasPrice = false;
+  if (settingsStore.showUsdPrices) {
+    for (const [, tokens] of tokensMap) {
+      allTokensHasPrice = tokens.every((t) => t.usd);
+      if (!allTokensHasPrice) break;
+    }
+  }
+
   const allTokensSumBalances = new Map<string, TokenBalance>();
   allAddressesTokens.forEach((t) => {
     const existingBalance = allTokensSumBalances.get(t.token)?.balance ?? 0n;
-    const newBalance = existingBalance + (t.balance ?? 0n);
+    const newBalance = existingBalance + t.balance;
 
-    if (settingsStore.showUsdPrices) {
+    if (settingsStore.showUsdPrices && allTokensHasPrice && t.usd) {
       const existingUsdBalance = allTokensSumBalances.get(t.token)?.usd?.balance ?? 0;
-      const newUsdBalance = existingUsdBalance + (t.usd?.balance ?? 0);
-      const newUsd = { balance: newUsdBalance, price: t.usd?.price ? t.usd.price : null };
+      const newUsdBalance = existingUsdBalance + t.usd.balance;
+      const newUsd = { balance: newUsdBalance, price: t.usd.price };
       allTokensSumBalances.set(t.token, { ...t, balance: newBalance, usd: newUsd });
     } else {
       allTokensSumBalances.set(t.token, { ...t, balance: newBalance });
@@ -542,11 +550,13 @@ const loadTransfers = async (address: string) => {
       allTxns = transfersToTxnsList(transfers.reverse());
     }
   } catch (error) {
-    // console.error('Token transfers loading error:')
-    // console.error('error', error);
+    setTab('internal');
     setLoadingTxns(false);
     updateTokenTransfersRequested = false;
     showErigonDetailsTxnsWarning.value = true;
+    setTimeout(() => {
+      showErigonDetailsTxnsWarning.value = false;
+    }, 7000);
     return;
   }
   showErigonDetailsTxnsWarning.value = false;
@@ -561,8 +571,8 @@ const loadTransfers = async (address: string) => {
 };
 
 const loadTokensTransfers = async () => {
-  if (sumUnspentTxns.value > 10000n) {
-    warning.value = 'Details are available for addresses with less than 10K sent transactions.';
+  if (sumUnspentTxns.value > 12000n) {
+    warning.value = 'Details are available for addresses with less than 12K sent transactions.';
     setTimeout(() => {
       warning.value = '';
     }, 7000);
@@ -639,7 +649,8 @@ const updatePagesState = (pagination: DetailsPagination | FavoritesPagination) =
 
 const deleteFavorite = async (address: string) => {
   cache.removeFavoriteAddress(address);
-  await mount(Array.from(cache.getFavoriteAddresses()));
+  const newAddressList = Array.from(cache.getFavoriteAddresses());
+  await mount(newAddressList);
 };
 </script>
 
@@ -655,8 +666,6 @@ const deleteFavorite = async (address: string) => {
     :lastUpdateTimestamp="lastUpdateTimestamp"
     :tokenCreator="tokenCreator"
     :tokenInfo="tokenInfo"
-    :showErigonTokensWarning="showErigonTokensWarning"
-    :showErigonPricesWarning="showErigonPricesWarning"
     :loadingUnspent="loadingUnspent"
     :tokensError="tokensError"
     :tokensPricesError="tokensPricesError"
@@ -673,7 +682,6 @@ const deleteFavorite = async (address: string) => {
     :tokens="tokens"
     :lastUpdateTimestamp="lastUpdateTimestamp"
     :sumUnspentEthUsd="sumUnspentEthUsd"
-    :showErigonTokensWarning="showErigonTokensWarning"
     :loadingUnspent="loadingUnspent"
     :tokensError="tokensError"
     :tokensPricesError="tokensPricesError"
@@ -695,7 +703,6 @@ const deleteFavorite = async (address: string) => {
     :warning="warning"
     :loadingPage="loadingPage"
     :paginationOn="!isFavorites"
-    :showErigonInternalTxnsWarning="showErigonInternalTxnsWarning"
     :showErigonDetailsTxnsWarning="showErigonDetailsTxnsWarning"
     :noAddresses="noAddresses"
     @loadTokensTransfers="loadTokensTransfers"

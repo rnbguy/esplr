@@ -37,8 +37,10 @@ export const getChainIdName = (netId: string) => {
       return 'Gnosis Chiado Testnet';
     case 80001:
       return 'Matic/Polygon Mumbai Testnet';
+    case 42161:
+      return 'Arbitrum One Network';
     default:
-      return 'Unknown Blockchain Network';
+      return 'Unknown Network';
   }
 };
 
@@ -52,6 +54,7 @@ export const shortenFavAddr = (address: string | null) => {
   return `${address.slice(0, 10)}...${address.slice(-8)}`;
 };
 
+// nine chars is suitable for layout in some cases
 export const shortenAddr = (address: string | null) => {
   if (!address?.length) {
     return '-';
@@ -60,6 +63,16 @@ export const shortenAddr = (address: string | null) => {
     return address;
   }
   return `${address.slice(0, 9)}...`;
+};
+
+export const shortenAddr10 = (address: string | null) => {
+  if (!address?.length) {
+    return '-';
+  }
+  if (address.length < 10) {
+    return address;
+  }
+  return `${address.slice(0, 10)}...`;
 };
 
 export const shortenTx = (txnHash: string) => {
@@ -107,6 +120,10 @@ export const getTransactionMethodName = (
     return data.slice(0, 10);
   }
   return data;
+};
+
+export const formatUsdPrice = (usdValue: number): string => {
+  return new Intl.NumberFormat('en-us', { style: 'currency', currency: 'USD' }).format(usdValue);
 };
 
 export const fromWeiToGwei = (wei: bigint, precision: number): string => {
@@ -207,7 +224,6 @@ export const isERC20TokenInfo = (info: unknown): info is ERC20TokenInfo => {
     'abi' in info &&
     info.abi === 'ERC20' &&
     'name' in info &&
-    info.name !== '' &&
     'symbol' in info &&
     info.symbol !== '' &&
     'decimals' in info &&

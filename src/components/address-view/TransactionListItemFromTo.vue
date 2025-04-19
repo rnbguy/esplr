@@ -43,15 +43,17 @@ const matchPageAddress = (address: string) => {
 
       <div v-if="!matchPageAddress(txn.from)" class="txn-from-to-item">
         <b class="txn-from-to-label">From</b>
-        <RouterLink class="link" :to="`/address/${txn.from}`">
+        <RouterLink v-if="txn.from?.length" class="link" :to="`/address/${txn.from}`">
           {{ shortenAddr(txn.from) }}
         </RouterLink>
+        <span v-else>-</span>
       </div>
       <div v-if="!matchPageAddress(txn.to)" class="txn-from-to-item">
         <b class="txn-from-to-label">To</b>
-        <RouterLink class="link" :to="`/address/${txn.to}`">
+        <RouterLink v-if="txn.to?.length" class="link" :to="`/address/${txn.to}`">
           {{ shortenAddr(txn.to) }}
         </RouterLink>
+        <span v-else>-</span>
       </div>
     </div>
 

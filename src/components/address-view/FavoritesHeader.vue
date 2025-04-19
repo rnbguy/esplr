@@ -3,8 +3,10 @@ import type { TokenBalance, FavoriteAddress } from '@/types';
 import { formatTimestampLocalWithoutYear } from '@/utils/utils';
 import TokensList from '@/components/address-view/TokensList.vue';
 import FavoritesList from '@/components/address-view/FavoritesList.vue';
+import { useAppStore } from '@/stores/app';
 
 const emit = defineEmits(['updateData', 'deleteFavorite']);
+const appStore = useAppStore();
 
 const props = defineProps<{
   favorites: FavoriteAddress[];
@@ -14,7 +16,6 @@ const props = defineProps<{
   loadingTokens: boolean;
   lastUpdateTimestamp: number;
   sumUnspentEthUsd: number;
-  showErigonTokensWarning: boolean;
   loadingUnspent: boolean;
   tokensError: boolean;
   tokensPricesError: boolean;
@@ -54,14 +55,15 @@ const handleDeleteFavorite = (address: string) => {
   </div>
 
   <div v-if="noAddresses" class="warning">
-    <i class="bi bi-info-circle"></i>
+    <i class="bi bi-exclamation-triangle"></i>
     Add some addresses to your favorites to see the info.
   </div>
 
   <div><b>Transactions Sent (non contracts):</b> {{ unspentError ? 0 : sumUnspentTxns }}</div>
-  <div v-if="unspentError" class="warning txns-sent-warning">
+  <div v-if="appStore.otsApiError || unspentError" class="warning txns-sent-warning">
     <i class="bi bi-exclamation-triangle"></i>
-    Value may not be accurate. Erigon OTS namespace is disabled.
+    Value may not be accurate. Erigon OTS namespace is disabled or Ethereum node has limitations or
+    Erigon error has occurred. Check Erigon or node logs.
   </div>
 
   <TokensList
@@ -69,8 +71,6 @@ const handleDeleteFavorite = (address: string) => {
     :loadingTokens="loadingTokens"
     :unspentEth="sumBalance"
     :unspentEthUsd="sumUnspentEthUsd"
-    :showErigonTokensWarning="showErigonTokensWarning"
-    :showErigonPricesWarning="false"
     :loadingUnspent="loadingUnspent"
     :tokensError="tokensError"
     :tokensPricesError="tokensPricesError"

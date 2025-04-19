@@ -143,8 +143,8 @@ export type TokenBalance = {
   balance: bigint;
   info: ERC20TokenInfo;
   usd?: {
-    price: number | null;
-    balance: number | null;
+    price: number;
+    balance: number;
   };
 };
 

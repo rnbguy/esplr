@@ -37,6 +37,8 @@ const lastBlocks = ref<BlockInfo[]>([]);
 const lastTxns = ref<TxInfoExtended[]>([]);
 const updatedTimestamp = ref(Date.now());
 const ethPrice = ref(0);
+const priceError = ref(false);
+const maxPriorityFeeError = ref(false);
 
 const LAST_BLOCKS_COUNT = 5;
 const LAST_TXNS_COUNT = 5;
@@ -80,12 +82,25 @@ const mount = async () => {
   const gasPriceWei = await getGasPriceWei(prov.value as Web3Provider);
   const newGasPriceGwei = fromWeiToGwei(gasPriceWei, GAS_PRICE_PRECISION);
 
-  const maxPriorityFeeHex = await prov.value.call('eth_maxPriorityFeePerGas');
-  const newMaxPriorityFeeGwei = fromWeiToGwei(BigInt(maxPriorityFeeHex), GAS_PRICE_PRECISION);
+  let newMaxPriorityFeeGwei = '-';
+  try {
+    const maxPriorityFeeHex = await prov.value.call('eth_maxPriorityFeePerGas');
+    newMaxPriorityFeeGwei = fromWeiToGwei(BigInt(maxPriorityFeeHex), GAS_PRICE_PRECISION);
+    maxPriorityFeeError.value = false;
+  } catch (error) {
+    maxPriorityFeeError.value = true;
+    console.error('Error fetching max priority fee:', error);
+  }
 
   if (showPrices) {
-    const link = new Chainlink(prov.value);
-    ethPrice.value = roundToTwo(await link.coinPrice('ETH'));
+    try {
+      const link = new Chainlink(prov.value);
+      ethPrice.value = roundToTwo(await link.coinPrice('ETH'));
+      priceError.value = false;
+    } catch (error) {
+      priceError.value = true;
+      console.error('Error fetching ETH price:', error);
+    }
   }
 
   const newFavoriteAddresses = Array.from(addressCache.getFavoriteAddresses());
@@ -228,9 +243,18 @@ const laodDataFromCache = async () => {
     :block="lastBlocks[0]"
   />
 
+  <div v-if="maxPriorityFeeError" class="warning">
+    <i class="bi bi-exclamation-triangle"></i>
+    Max priority fee could not be loaded. Probably because of the Ethereum node limitations.
+  </div>
+  <div v-if="priceError" class="warning">
+    <i class="bi bi-exclamation-triangle"></i>
+    USD prices could not be loaded. Probably because of the Ethereum node limitations.
+  </div>
   <div v-if="favoriteAddressesError" class="warning">
     <i class="bi bi-exclamation-triangle"></i>
-    Favorite transactions can not be loaded. Erigon OTS namespace is disabled.
+    Favorite transactions can not be loaded. Erigon OTS namespace is disabled or Ethereum node has
+    limitations or Erigon error has occurred. Check Erigon or node logs.
   </div>
   <Favorites
     v-if="favoriteTxns.length"
@@ -280,6 +304,7 @@ const laodDataFromCache = async () => {
 
 .update-btn-wrapper {
   width: 200px;
+  min-width: 200px;
   display: flex;
   gap: 7px;
   align-items: center;
@@ -290,6 +315,7 @@ const laodDataFromCache = async () => {
   .update-btn-wrapper {
     display: block;
     width: 105px;
+    min-width: 105px;
     text-align: right;
     margin-bottom: 0;
   }
@@ -323,5 +349,9 @@ const laodDataFromCache = async () => {
   .chain-info-col {
     width: 49%;
   }
+}
+
+.warning {
+  font-size: 17px;
 }
 </style>

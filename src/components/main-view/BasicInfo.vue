@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatTimestampLocalWithoutYear } from '@/utils/utils';
+import { formatTimestampLocalWithoutYear, formatUsdPrice } from '@/utils/utils';
 import type { BlockInfo } from 'node_modules/micro-eth-signer/net/archive';
 import { useSettingsStore } from '@/stores/settings';
 
@@ -18,7 +18,7 @@ defineProps<{
     <div class="blockchain-info__block">
       <div v-if="settingsStore.showUsdPrices">
         <b>Ether price</b><br />
-        ${{ ethPrice }}
+        {{ formatUsdPrice(ethPrice) }}
       </div>
       <div v-else>
         <b>Latest Block</b><br />

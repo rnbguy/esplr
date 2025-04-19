@@ -2,7 +2,7 @@
 import { ref, provide } from 'vue';
 import { RouterView } from 'vue-router';
 import { ftch, jsonrpc } from 'micro-ftch';
-import { Web3Provider } from 'micro-eth-signer/net';
+import { Web3Provider, Chainlink } from 'micro-eth-signer/net';
 import RpcField from '@/components/RpcField.vue';
 import Search from '@/components/Search.vue';
 import Header from '@/components/Header.vue';
@@ -10,7 +10,9 @@ import { getChainIdName } from '@/utils/utils';
 import { APP_DESC } from '@/config';
 
 import { useAppStore } from '@/stores/app';
+import { useSettingsStore } from '@/stores/settings';
 const appStore = useAppStore();
+const settingsStore = useSettingsStore();
 
 const connectionError = ref(false);
 const connected = ref(false);
@@ -46,6 +48,16 @@ const handleConnect = async (url: string) => {
   const isErigon = client.toLowerCase().includes('erigon');
   appStore.setIsErigon(isErigon);
 
+  if (settingsStore.showUsdPrices) {
+    try {
+      await new Chainlink(provider.value).coinPrice('ETH');
+    } catch {
+      console.warn('Chainlink error, disabling USD prices');
+      settingsStore.setShowUsdPrices(false);
+      settingsStore.setForciblyDisabledPrices(true);
+    }
+  }
+
   connected.value = true;
 };
 </script>
@@ -57,7 +69,8 @@ const handleConnect = async (url: string) => {
 
   <div v-if="!connected">
     The app needs an archive node as a backend because of specific API calls.
-    <code>https://api.securerpc.com/v1</code> and other non-archive nodes from the list below can still be used, but the functionality would become limited:<br />
+    <code>https://api.securerpc.com/v1</code> and other non-archive nodes from the list below can
+    still be used, but the functionality would become limited:<br />
     <ul style="margin-top: 5px">
       <li>
         <a target="_blank" href="https://chainlist.org/chain/1">chainlist.org</a>

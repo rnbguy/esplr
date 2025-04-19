@@ -34,5 +34,6 @@ const appStore = useAppStore();
   margin-top: 0;
   margin-right: 6px;
   margin-bottom: 0;
+  word-break: break-word;
 }
 </style>

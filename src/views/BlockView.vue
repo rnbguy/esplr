@@ -74,7 +74,13 @@ const mount = async (block: string) => {
     </div>
     <div class="field">
       <div class="field-title">Transactions:</div>
-      <div class="hash">{{ transactionsCount > 0 ? transactionsCount : '' }}</div>
+      <div class="hash">
+        <span v-if="transactionsCount > 0">
+          <RouterLink class="link" :to="`/block/${blockNumber}/txs`">
+            {{ transactionsCount }} txs
+          </RouterLink>
+        </span>
+      </div>
     </div>
     <div class="field">
       <div class="field-title">Withdrawals:</div>
@@ -112,6 +118,7 @@ const mount = async (block: string) => {
   margin-top: 20px;
   margin-bottom: 15px;
   font-weight: normal;
+  word-break: break-word;
 }
 
 .details-header {

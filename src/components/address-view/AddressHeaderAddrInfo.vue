@@ -63,7 +63,8 @@ const toggleFavorite = () => {
         class="warning txns-sent-warning"
       >
         <i class="bi bi-exclamation-triangle"></i>
-        Value may not be accurate. Erigon OTS namespace is disabled.
+        Value may not be accurate. Erigon OTS namespace is disabled or Ethereum node has limitations
+        or Erigon error has occurred. Check Erigon or node logs.
       </div>
 
       <div class="actions">
@@ -147,6 +148,7 @@ const toggleFavorite = () => {
 
 .update-btn-wrapper {
   width: 105px;
+  min-width: 105px;
   text-align: right;
 }
 
@@ -158,6 +160,7 @@ const toggleFavorite = () => {
   display: flex;
   align-items: center;
   gap: 5px;
+  word-break: break-word;
 }
 
 .txns-sent-warning {

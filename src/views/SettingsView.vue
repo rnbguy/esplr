@@ -1,10 +1,15 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, inject, type Ref } from 'vue';
+import { Chainlink, Web3Provider } from 'micro-eth-signer/net';
 import { AddressCache } from '@/cache';
 import { MainPageCache } from '@/cache/mainPage';
 import Checkbox from '@/components/Checkbox.vue';
 import { useAppStore } from '@/stores/app';
 import { useSettingsStore } from '@/stores/settings';
+
+const provider = inject<Ref<Web3Provider>>('provider');
+if (!provider) throw new Error('Provider not found!');
+const prov = ref<Web3Provider>(provider.value);
 
 const cashedAddresses = ref<string[]>([]);
 const cache = AddressCache.getInstance();
@@ -12,6 +17,7 @@ const mainDataCache = MainPageCache.getInstance();
 
 const settingsStore = useSettingsStore();
 const appStore = useAppStore();
+const priceError = ref(false);
 
 const networkName = computed(() =>
   appStore.networkName === 'Mainnet' ? 'Ethereum Mainnet' : appStore.networkName
@@ -31,7 +37,31 @@ const handleClearCache = () => {
   cashedAddresses.value = [];
 };
 
-const handleShowUsdPrices = () => {
+const priceTryError = () => {
+  settingsStore.setShowUsdPrices(false);
+  settingsStore.setForciblyDisabledPrices(true);
+
+  priceError.value = true;
+  setTimeout(() => {
+    priceError.value = false;
+  }, 5000);
+
+  console.warn('Chainlink error, disabling USD prices');
+};
+
+const tryPrice = async () => {
+  await new Chainlink(prov.value).coinPrice('ETH');
+  settingsStore.setForciblyDisabledPrices(false);
+};
+
+const handleShowUsdPrices = async () => {
+  if (!settingsStore.showUsdPrices) {
+    try {
+      await tryPrice();
+    } catch {
+      return priceTryError();
+    }
+  }
   settingsStore.toggleShowUsdPrices();
 };
 </script>
@@ -40,7 +70,7 @@ const handleShowUsdPrices = () => {
   <div class="header">
     <h3>Settings</h3>
   </div>
-  <div>
+  <div class="connected-to">
     Connected to
     <b>{{ networkName }}</b
     >:
@@ -60,6 +90,16 @@ const handleShowUsdPrices = () => {
       label="Show prices in USD"
       :checked="settingsStore.showUsdPrices"
     />
+    <div class="warning">
+      <div v-if="priceError">
+        <i class="bi bi-exclamation-triangle"></i>
+        Try to enable USD prices failed.
+      </div>
+      <div v-if="settingsStore.forciblyDisabledPrices">
+        <i class="bi bi-exclamation-triangle"></i>
+        USD prices were disabled because of the Ethereum node limitations.
+      </div>
+    </div>
   </div>
 
   <div>
@@ -77,6 +117,11 @@ const handleShowUsdPrices = () => {
 </template>
 
 <style scoped>
+.checkbox {
+  display: flex;
+  align-items: center;
+}
+
 .header {
   display: flex;
   justify-content: space-between;
@@ -106,5 +151,13 @@ h4 {
   margin-bottom: 20px;
   overflow-y: scroll;
   max-height: 325px;
+}
+
+.warning {
+  font-size: 17px;
+}
+
+.connected-to {
+  word-break: break-word;
 }
 </style>

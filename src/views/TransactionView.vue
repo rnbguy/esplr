@@ -48,6 +48,11 @@ const type = ref('');
 const nonce = ref(0);
 const transactionIndex = ref(0);
 
+const transactionError = ref(false);
+const transfersError = ref(false);
+const blockError = ref(false);
+const blockConfirmationsError = ref(false);
+
 onMounted(async () => {
   await mount(route.params.tx as string);
 });
@@ -63,29 +68,61 @@ const mount = async (tx: string) => {
   isLoadingTxnBaseInfo.value = true;
   transactionHash.value = tx;
 
-  const txn = await prov.txInfo(tx);
+  let txn: TxnInfo;
+  try {
+    transactionError.value = false;
+    txn = await prov.txInfo(tx);
+  } catch (error) {
+    transactionError.value = true;
+    isLoadingTxnBaseInfo.value = false;
+    console.error(error);
+    return;
+  }
   txnInfo.value = txn;
 
   const { hash, from, to, blockNumber } = txn.info;
-  const blockDetails = await prov.blockInfo(blockNumber);
+  try {
+    blockError.value = false;
+    const blockDetails = await prov.blockInfo(blockNumber);
+    timestamp.value = formatTimestampLocal(blockDetails.timestamp);
+  } catch (error) {
+    blockError.value = true;
+    console.error('Error loading block details:', error);
+  }
 
-  timestamp.value = formatTimestampLocal(blockDetails.timestamp);
+  try {
+    blockConfirmationsError.value = false;
+    blockConfirmations.value = (await prov.height()) - blockNumber + 1;
+  } catch (error) {
+    blockConfirmationsError.value = true;
+    console.error(error);
+  }
+
+  // TODO: fix ts ignores below
+
   action.value = getTransactionMethodName(txn.info);
-  blockConfirmations.value = (await prov.height()) - blockNumber + 1;
+  // @ts-ignore
   success.value = txn.receipt.status === 1;
+  // @ts-ignore
   value.value = txn.info.value;
   type.value = txn.type;
+  // @ts-ignore
   nonce.value = txn.info.nonce;
   transactionIndex.value = txn.info.transactionIndex;
   isLoadingTxnBaseInfo.value = false;
 
-  isLoadingTxnTokenTransfers.value = true;
-  const [fromAddrTransfers, toAddrTransfers] = await Promise.all([
-    getTokenTransfersForTxn(prov, hash, from, blockNumber),
-    to ? getTokenTransfersForTxn(prov, hash, to, blockNumber) : Promise.resolve([]),
-  ]);
-
-  netTransfers.value = concatTransfers(fromAddrTransfers, toAddrTransfers);
+  try {
+    transfersError.value = false;
+    isLoadingTxnTokenTransfers.value = true;
+    const [fromAddrTransfers, toAddrTransfers] = await Promise.all([
+      getTokenTransfersForTxn(prov, hash, from, blockNumber),
+      to ? getTokenTransfersForTxn(prov, hash, to, blockNumber) : Promise.resolve([]),
+    ]);
+    netTransfers.value = concatTransfers(fromAddrTransfers, toAddrTransfers);
+  } catch (error) {
+    transfersError.value = true;
+    console.error(error);
+  }
   isLoadingTxnTokenTransfers.value = false;
 };
 </script>
@@ -100,7 +137,13 @@ const mount = async (tx: string) => {
     <b>Details:</b>
     <span v-if="isLoadingTxnBaseInfo" class="spinner"></span>
   </div>
-  <div class="info">
+  <div v-if="transactionError" class="warning">
+    <i class="bi bi-exclamation-triangle"></i>
+    Transaction could not be loaded. Probably because of the Ethereum node limitations or wrong
+    transaction hash.
+  </div>
+
+  <div v-if="!transactionError" class="info">
     <div class="field">
       <div class="field-title">Status:</div>
       <div v-if="!isLoadingTxnBaseInfo">
@@ -117,14 +160,25 @@ const mount = async (tx: string) => {
         <RouterLink class="link" :to="`/block/${txnInfo.info.blockNumber}`">
           {{ txnInfo.info.blockNumber }}
         </RouterLink>
-        <span class="label small">{{ blockConfirmations }} Block Confirmations</span>
+        <span v-if="blockConfirmationsError" class="warning" style="margin-left: 5px">
+          <i class="bi bi-exclamation-triangle"></i>
+          Block confirmations could not be loaded. Probably because of the Ethereum node
+          limitations.
+        </span>
+        <span v-else class="label small">{{ blockConfirmations }} Block Confirmations</span>
       </div>
     </div>
 
     <div class="field">
       <div class="field-title">Time:</div>
-      <div v-if="!isLoadingTxnBaseInfo">
+      <div v-if="!blockError && !isLoadingTxnBaseInfo">
         {{ timestamp }}
+      </div>
+      <div v-if="blockError && !isLoadingTxnBaseInfo">
+        <span class="warning">
+          <i class="bi bi-exclamation-triangle"></i>
+          Block time could not be loaded. Probably because of the Ethereum node limitations.
+        </span>
       </div>
     </div>
 
@@ -132,7 +186,7 @@ const mount = async (tx: string) => {
       <div class="field-title">From:</div>
       <div v-if="!isLoadingTxnBaseInfo && txnInfo" class="tx-hash">
         <RouterLink
-          v-if="txnInfo.info.from"
+          v-if="txnInfo.info.from?.length"
           class="link txn-hash-link"
           :to="`/address/${txnInfo.info.from}`"
         >
@@ -146,7 +200,7 @@ const mount = async (tx: string) => {
       <div class="field-title">Interacted With (To):</div>
       <div v-if="!isLoadingTxnBaseInfo && txnInfo" class="tx-hash">
         <RouterLink
-          v-if="txnInfo.info.to"
+          v-if="txnInfo.info.to?.length"
           class="link txn-hash-link"
           :to="`/address/${txnInfo.info.to}`"
         >
@@ -163,10 +217,13 @@ const mount = async (tx: string) => {
 
     <div class="field transfers-block">
       <div class="field-title">Tokens Transfers:</div>
-      <div v-if="netTransfers.length && !isLoadingTxnTokenTransfers" class="net-transfers">
+      <div
+        v-if="netTransfers.length && !isLoadingTxnTokenTransfers && !transfersError"
+        class="net-transfers"
+      >
         <div class="token-transfer" v-for="t in netTransfers" :key="t.addr">
           <span class="tx-hash shortenAddr">
-            <RouterLink v-if="t.addr" class="link txn-hash-link" :to="`/address/${t.addr}`">
+            <RouterLink v-if="t.addr?.length" class="link txn-hash-link" :to="`/address/${t.addr}`">
               {{ shortenAddr(t.addr) }}
             </RouterLink>
             <span v-else>-</span>
@@ -181,8 +238,21 @@ const mount = async (tx: string) => {
       <div v-if="isLoadingTxnTokenTransfers && !isLoadingTxnBaseInfo">
         <span class="spinner"></span>
       </div>
-      <div v-if="!netTransfers.length && !isLoadingTxnTokenTransfers && !isLoadingTxnBaseInfo">
+      <div
+        v-if="
+          !transfersError &&
+          !netTransfers.length &&
+          !isLoadingTxnTokenTransfers &&
+          !isLoadingTxnBaseInfo
+        "
+      >
         -
+      </div>
+      <div v-if="transfersError && !isLoadingTxnTokenTransfers && !isLoadingTxnBaseInfo">
+        <span class="warning">
+          <i class="bi bi-exclamation-triangle"></i>
+          Token transfers could not be loaded. Probably because of the Ethereum node limitations.
+        </span>
       </div>
     </div>
 
@@ -316,6 +386,7 @@ const mount = async (tx: string) => {
   flex-direction: column;
   justify-content: start;
   align-items: flex-start;
+  word-break: break-word;
 }
 
 @media (min-width: 650px) {
@@ -333,6 +404,7 @@ const mount = async (tx: string) => {
   display: flex;
   align-items: flex-start;
   flex-direction: column;
+  word-break: break-word;
 }
 
 @media (min-width: 650px) {
@@ -362,5 +434,9 @@ const mount = async (tx: string) => {
 
 .eth-value {
   word-break: break-word;
+}
+
+.warning {
+  font-size: 17px;
 }
 </style>

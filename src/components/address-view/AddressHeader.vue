@@ -16,8 +16,6 @@ const props = defineProps<{
   lastUpdateTimestamp: number;
   tokenCreator: OtsGetContractCreatorResponse | null;
   tokenInfo: ERC20TokenInfo | null;
-  showErigonTokensWarning: boolean;
-  showErigonPricesWarning: boolean;
   loadingUnspent: boolean;
   tokensError: boolean;
   tokensPricesError: boolean;
@@ -67,8 +65,6 @@ const handleUpdateData = (addresses: string[]) => {
       :tokens="tokens"
       :loadingUnspent="loadingUnspent"
       :loadingTokens="loadingTokens"
-      :showErigonTokensWarning="showErigonTokensWarning"
-      :showErigonPricesWarning="showErigonPricesWarning"
       :tokensError="tokensError"
       :tokensPricesError="tokensPricesError"
       :unspentPriceError="unspentPriceError"

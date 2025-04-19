@@ -41,7 +41,8 @@ export class DetailsPagination {
     this.page = 1;
     this.firstPage = this.isFirstPage();
     this.lastPage = this.isLastPage();
-    return this.allTxns.slice(0, this.pageSize);
+    this.currentTxns = this.allTxns.slice(0, this.pageSize);
+    return this.currentTxns;
   }
 
   showNextPage(): TransactionListItem[][] {
@@ -71,6 +72,7 @@ export class DetailsPagination {
     this.firstPage = this.isFirstPage();
     this.lastPage = this.isLastPage();
     const start = (this.page - 1) * this.pageSize;
-    return this.allTxns.slice(start);
+    this.currentTxns = this.allTxns.slice(start);
+    return this.currentTxns;
   }
 }

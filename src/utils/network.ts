@@ -51,10 +51,11 @@ export const getTransactionsBeforeWithBlockDetails = async (
 ): Promise<OtsSearchTransactionExtended[]> => {
   const transactions = await getTransactionsBefore(prov, address, blockNumber, pageSize);
   return transactions.txs.map((txn: OtsSearchTransaction) => {
-    const receipt = transactions.receipts.find((r) => r.transactionHash === txn.hash);
-    const blockData = {
-      timestamp: receipt?.timestamp ?? '-',
-    };
+    let blockData = { timestamp: '-' };
+    if (transactions.receipts && transactions.receipts.length > 0) {
+      const receipt = transactions.receipts.find((r) => r && r.transactionHash === txn.hash);
+      blockData.timestamp = receipt?.timestamp ?? '-';
+    }
     return { txn, blockData };
   });
 };
@@ -67,10 +68,11 @@ export const getTransactionsAfterWithBlockDetails = async (
 ): Promise<OtsSearchTransactionExtended[]> => {
   const transactions = await getTransactionsAfter(prov, address, blockNumber, pageSize);
   return transactions.txs.map((txn: OtsSearchTransaction) => {
-    const receipt = transactions.receipts.find((r) => r.transactionHash === txn.hash);
-    const blockData = {
-      timestamp: receipt?.timestamp ?? '-',
-    };
+    let blockData = { timestamp: '-' };
+    if (transactions.receipts && transactions.receipts.length > 0) {
+      const receipt = transactions.receipts.find((r) => r && r.transactionHash === txn.hash);
+      blockData.timestamp = receipt?.timestamp ?? '-';
+    }
     return { txn, blockData };
   });
 };
@@ -81,12 +83,13 @@ export const getLatestTxnsWithBlockDetails = async (
   limit: number
 ): Promise<OtsSearchTransactionExtended[]> => {
   const blockNumber = 0; // A value of 0 means the search is to be done from the most recent block
-  const latestTransactions = await getTransactionsBefore(prov, address, blockNumber, limit);
-  return latestTransactions.txs.map((txn: OtsSearchTransaction) => {
-    const receipt = latestTransactions.receipts.find((r) => r.transactionHash === txn.hash);
-    const blockData = {
-      timestamp: receipt?.timestamp ?? '-',
-    };
+  const latestTxns = await getTransactionsBefore(prov, address, blockNumber, limit);
+  return latestTxns.txs.map((txn: OtsSearchTransaction) => {
+    let blockData = { timestamp: '-' };
+    if (latestTxns.receipts && latestTxns.receipts.length > 0) {
+      const receipt = latestTxns.receipts.find((r) => r && r.transactionHash === txn.hash);
+      blockData.timestamp = receipt?.timestamp ?? '-';
+    }
     return { txn, blockData };
   });
 };
@@ -138,7 +141,8 @@ export const loadTokenInfoByBalances = async (
     throw new Error('Error fetching token info.');
   }
 
-  return tokens as TokenBalance[];
+  const withSymbol = tokens.filter((t) => t.info?.symbol?.length);
+  return withSymbol as TokenBalance[];
 };
 
 export const getLastBlocksBefore = async (
@@ -169,14 +173,13 @@ export const getLastTransactions = async (
     }
   }
 
-  const txns = await Promise.all(
+  return await Promise.all(
     [...txnsHashes].map(async ([hash, timestamp]) => {
       const txn = await prov.call('eth_getTransactionByHash', hash);
       txn.blockData = { timestamp };
       return txn;
     })
   );
-  return txns;
 };
 
 export const getLastTxnsByAddresses = async (
@@ -192,10 +195,11 @@ export const getLastTxnsByAddresses = async (
 
   const txnsByAddr = results.map((res) => {
     return res.txs.map((txn: OtsSearchTransaction) => {
-      const receipt = res.receipts.find((r: TxReceipt) => r.transactionHash === txn.hash);
-      const blockData = {
-        timestamp: receipt?.timestamp ?? '-',
-      };
+      let blockData = { timestamp: '-' };
+      if (res.receipts && res.receipts.length > 0) {
+        const receipt = res.receipts.find((r: TxReceipt) => r && r.transactionHash === txn.hash);
+        blockData.timestamp = receipt?.timestamp ?? '-';
+      }
       return { txn, blockData };
     });
   });
@@ -226,7 +230,7 @@ export const getPositiveTokenBalances = async (prov: Web3Provider, address: stri
   const balances = await prov.tokenBalances(address, Object.keys(TOKENS));
 
   const noErrors = Object.values(balances).every((balance) => {
-    return balance instanceof Map && balance.get(1n) !== undefined;
+    return balance instanceof Map && typeof balance.get(1n) === 'bigint';
   });
   if (!noErrors) {
     throw new Error('Error fetching token balances.');
@@ -253,7 +257,9 @@ export const getTokenTransfersForTxn = async (
     })
   ).filter((t) => t.hash === hash);
 
-  console.log('txnTransfers', txnTransfers);
+  if (!Array.isArray(txnTransfers) || (txnTransfers.length && !txnTransfers[0].tokenTransfers)) {
+    throw new Error('Error fetching token transfers.');
+  }
 
   const tokenTransfers = txnTransfers.length ? txnTransfers[0].tokenTransfers : [];
   if (!tokenTransfers.length) {

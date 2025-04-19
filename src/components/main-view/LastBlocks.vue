@@ -62,6 +62,7 @@ defineProps<{
   display: flex;
   gap: 5px;
   align-items: center;
+  word-break: break-word;
 }
 
 .block-box {
@@ -89,6 +90,7 @@ defineProps<{
 .txns {
   width: 100px;
   text-align: right;
+  word-break: break-word;
 }
 
 .text-line {

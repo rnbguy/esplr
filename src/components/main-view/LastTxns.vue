@@ -26,15 +26,17 @@ defineProps<{
         <div class="from-to">
           <div class="text-line">
             <b class="from-to-label">From</b>&nbsp;
-            <RouterLink class="link" :to="`address/${txn.from}`">
+            <RouterLink v-if="txn.from?.length" class="link" :to="`address/${txn.from}`">
               {{ shortenTx8(txn.from) }}
             </RouterLink>
+            <span v-else>-</span>
           </div>
           <div class="text-line">
             <b class="from-to-label">To</b>&nbsp;
-            <RouterLink class="link" :to="`address/${txn.to}`">
+            <RouterLink v-if="txn.to?.length" class="link" :to="`address/${txn.to}`">
               {{ shortenTx8(txn.to) }}
             </RouterLink>
+            <span v-else>-</span>
           </div>
         </div>
       </div>

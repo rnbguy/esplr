@@ -20,10 +20,6 @@ export class FavoritesPagination {
   prevPageReminder: TransactionListItem[][] = [];
   currentPageTxns: TransactionListItem[][] = [];
 
-  // needed for checking if we on the first or last page
-  firstTxnHash: string = '';
-  lastTxnHash: string = '';
-
   firstPage: boolean = false;
   lastPage: boolean = false;
   page: number = 1;
@@ -56,8 +52,6 @@ export class FavoritesPagination {
     this.nextPageReminder = [];
     this.prevPageReminder = [];
     this.currentPageTxns = [];
-    this.firstTxnHash = '';
-    this.lastTxnHash = '';
     this.firstPage = false;
     this.lastPage = false;
     this.page = 1;
@@ -88,25 +82,24 @@ export class FavoritesPagination {
       allTxns = addressesFirstPage.flat();
     }
 
-    allTxns = removeTxnsListItemsDuplicates(allTxns);
+    const fullList = removeTxnsListItemsDuplicates(allTxns);
 
-    allTxns.sort((a, b) => {
+    fullList.sort((a, b) => {
       if (a[0].timestamp === '-') return 1;
       if (b[0].timestamp === '-') return -1;
       return Number(b[0].timestamp) - Number(a[0].timestamp);
     });
 
-    this.prevPageReminder = [];
-    this.currentPageTxns = allTxns.slice(0, this.pageSize);
+    const resultTxns = fullList.slice(0, this.pageSize);
+    const reminder = fullList.slice(this.pageSize);
 
     // put to reminder only txns from current page last block,
     // because next blocks may be unrelevant for the next page for some addresses
     // for the next page we should make new request to not miss any txns
-    const reminder = allTxns.slice(this.pageSize);
-    const lastTxnBlock = this.currentPageTxns[this.currentPageTxns.length - 1][0].blockNumber;
-    this.nextPageReminder = reminder.filter((txn) => txn[0].blockNumber === lastTxnBlock);
-
-    this.firstTxnHash = this.currentPageTxns[0][0].hash;
+    const lastTxnBlockResult = resultTxns[resultTxns.length - 1][0].blockNumber;
+    this.nextPageReminder = reminder.filter((txn) => txn[0].blockNumber === lastTxnBlockResult);
+    this.prevPageReminder = [];
+    this.currentPageTxns = resultTxns;
 
     this.firstPage = true;
     this.page = 1;
@@ -119,11 +112,6 @@ export class FavoritesPagination {
 
   private async checkIsLastPage(addresses: string[]): Promise<boolean> {
     if (this.page === -1) {
-      // TODO: test this case for single address
-      return true;
-    }
-
-    if (this.lastTxnHash === this.currentPageTxns[this.currentPageTxns.length - 1][0].hash) {
       return true;
     }
 
@@ -223,7 +211,6 @@ export class FavoritesPagination {
 
     const lastTxnBlockResult = resultTxns[resultTxns.length - 1][0].blockNumber;
     this.nextPageReminder = reminder.filter((txn) => txn[0].blockNumber === lastTxnBlockResult);
-
     this.prevPageReminder = this.getPrevPageReminderOnShowNextPage(resultTxns);
     this.currentPageTxns = resultTxns; // set new currentPageTxns only after calling getPrevPageReminderOnShowNextPage
 
@@ -233,7 +220,7 @@ export class FavoritesPagination {
       this.lastPage = await this.checkIsLastPage(addresses);
     }
 
-    return resultTxns;
+    return this.currentPageTxns;
   }
 
   private getPrevPageReminderOnShowNextPage(
@@ -270,27 +257,28 @@ export class FavoritesPagination {
         })
       ));
 
-    const allTxns = removeTxnsListItemsDuplicates(addressesLastPage.flat());
-    allTxns.sort((a, b) => {
+    const fullList = removeTxnsListItemsDuplicates(addressesLastPage.flat());
+    fullList.sort((a, b) => {
       if (a[0].timestamp === '-') return 1;
       if (b[0].timestamp === '-') return -1;
       return Number(b[0].timestamp) - Number(a[0].timestamp);
     });
 
-    const resultStartPos = allTxns.length - this.pageSize;
+    let resultTxns: TransactionListItem[][];
+    const resultStartPos = fullList.length - this.pageSize;
 
-    this.nextPageReminder = [];
     if (resultStartPos > 0) {
-      this.currentPageTxns = allTxns.slice(resultStartPos);
-      const reminder = allTxns.slice(0, resultStartPos);
-      const firstTxnBlock = this.currentPageTxns[0][0].blockNumber;
-      this.prevPageReminder = reminder.filter((txn) => txn[0].blockNumber === firstTxnBlock);
+      resultTxns = fullList.slice(resultStartPos);
+      const reminder = fullList.slice(0, resultStartPos);
+      const firstTxnBlockResult = resultTxns[0][0].blockNumber;
+      this.prevPageReminder = reminder.filter((txn) => txn[0].blockNumber === firstTxnBlockResult);
     } else {
-      this.currentPageTxns = allTxns;
+      resultTxns = fullList;
       this.prevPageReminder = [];
     }
 
-    this.lastTxnHash = this.currentPageTxns[this.currentPageTxns.length - 1][0].hash;
+    this.nextPageReminder = [];
+    this.currentPageTxns = resultTxns;
 
     this.page = -1;
     if (!this._testEnv) {
@@ -303,15 +291,14 @@ export class FavoritesPagination {
 
   private async checkIsFirstPage(addresses: string[]): Promise<boolean> {
     if (this.page === 1) {
-      // TODO: test this case for single address
-      return true;
-    }
-
-    if (this.firstTxnHash === this.currentPageTxns[0][0].hash) {
       return true;
     }
 
     if (this.currentPageTxns.length < this.pageSize) {
+      return true;
+    }
+
+    if (!window.navigator.onLine) {
       return true;
     }
 
@@ -343,7 +330,10 @@ export class FavoritesPagination {
     return moreTxns.length > 0;
   };
 
-  async showPrevPage(addresses: string[]): Promise<TransactionListItem[][]> {
+  async showPrevPage(
+    addresses: string[],
+    _testData: TransactionListItem[][][] | null = null
+  ): Promise<TransactionListItem[][]> {
     if (this.firstPage) {
       this.prevPageReminder = [];
       return this.currentPageTxns;
@@ -375,13 +365,15 @@ export class FavoritesPagination {
     const lackTxnsCount = this.pageSize - currentBeforeReminder.length;
     const block = parseInt(this.currentPageTxns[0][0].blockNumber);
 
-    const result = await Promise.all(
-      addresses.map(async (address) => {
-        return txnsWithBlockDetailsToTxnsList(
-          await getTransactionsAfterWithBlockDetails(this.prov, address, block, lackTxnsCount)
-        );
-      })
-    );
+    const result =
+      _testData ??
+      (await Promise.all(
+        addresses.map(async (address) => {
+          return txnsWithBlockDetailsToTxnsList(
+            await getTransactionsAfterWithBlockDetails(this.prov, address, block, lackTxnsCount)
+          );
+        })
+      ));
 
     const newTxns = removeTxnsListItemsDuplicates(result.flat());
     newTxns.sort((a, b) => {
@@ -393,6 +385,7 @@ export class FavoritesPagination {
     let resultTxns: TransactionListItem[][];
     const fullList = newTxns.concat(currentBeforeReminder);
     const resultStartPos = fullList.length - this.pageSize;
+
     if (resultStartPos > 0) {
       resultTxns = fullList.slice(resultStartPos);
       const reminder = fullList.slice(0, resultStartPos);
@@ -412,7 +405,7 @@ export class FavoritesPagination {
     }
     this.lastPage = false;
 
-    return resultTxns;
+    return this.currentPageTxns;
   }
 
   private getNextPageReminderOnShowPrevPage(

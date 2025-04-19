@@ -15,7 +15,7 @@ const onChange = (event: Event) => {
   <div class="custom-checkbox">
     <label>
       <input id="checkbox" @change="onChange" :checked="checked" type="checkbox" />
-      <span class="checkmark"></span>
+      <span :class="['checkmark', { checked: checked }]"></span>
       <span for="checkbox"> {{ label }} </span>
     </label>
   </div>
@@ -81,7 +81,7 @@ const onChange = (event: Event) => {
 }
 
 /* Style the checkmark when checkbox is checked */
-.custom-checkbox input[type='checkbox']:checked + .checkmark {
+.custom-checkbox input[type='checkbox']:checked + .checkmark.checked {
   background: #0092bf;
   transition: none;
 }
@@ -100,7 +100,7 @@ const onChange = (event: Event) => {
 }
 
 /* Show the checkmark when checkbox is checked */
-.custom-checkbox input[type='checkbox']:checked + .checkmark:after {
+.custom-checkbox input[type='checkbox']:checked + .checkmark.checked:after {
   display: block;
 }
 </style>

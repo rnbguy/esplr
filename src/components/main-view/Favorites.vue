@@ -36,15 +36,17 @@ defineProps<{ favoriteAddresses: string[]; favoriteTxns: TransactionListItem[][]
           <div class="from-to">
             <div class="text-line">
               <b class="from-to-label">From</b>&nbsp;
-              <RouterLink class="link" :to="`address/${txn[0].from}`">
+              <RouterLink v-if="txn[0].from?.length" class="link" :to="`address/${txn[0].from}`">
                 {{ txn[0].from.slice(0, 8) }}...
               </RouterLink>
+              <span v-else>-</span>
             </div>
             <div class="text-line">
               <b class="from-to-label">To</b>&nbsp;
-              <RouterLink class="link" :to="`address/${txn[0].to}`">
+              <RouterLink v-if="txn[0].to?.length" class="link" :to="`address/${txn[0].to}`">
                 {{ txn[0].to.slice(0, 8) }}...
               </RouterLink>
+              <span v-else>-</span>
             </div>
           </div>
         </div>

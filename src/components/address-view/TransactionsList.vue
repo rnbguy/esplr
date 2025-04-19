@@ -12,16 +12,16 @@ const props = defineProps<{
   address: string;
   transactions: TransactionListItem[][];
   loadingTxns: boolean;
-  activeTab: string;
+  activeTab?: string;
   isFirstPage: boolean;
   isLastPage: boolean;
   warning: string;
   loadingPage: boolean;
   currentPage: number;
   paginationOn: boolean;
-  showErigonInternalTxnsWarning: boolean;
-  showErigonDetailsTxnsWarning: boolean;
-  noAddresses: boolean;
+  showErigonDetailsTxnsWarning?: boolean;
+  noAddresses?: boolean;
+  firstTabText?: string;
 }>();
 
 const handleTokenTransfersClick = () => {
@@ -47,7 +47,7 @@ const openPage = async (page: string) => {
           @click="handleInternalTransactionsClick"
           :class="['btn btn-dark btn-tab', { active: activeTab === 'internal' }]"
         >
-          Internal transactions
+          {{ props.firstTabText ? `${props.firstTabText}` : 'Internal transactions' }}
         </span>
         <span
           v-if="paginationOn"
@@ -63,7 +63,7 @@ const openPage = async (page: string) => {
         :isLastPage
         :loadingPage
         :currentPage
-        :disabled="appStore.otsApiError || loadingTxns || noAddresses"
+        :disabled="appStore.otsApiError || loadingTxns || noAddresses || !transactions.length"
       />
     </div>
 
@@ -78,23 +78,21 @@ const openPage = async (page: string) => {
 
     <div v-if="appStore.otsApiError" class="warning ots-api-warning">
       <i class="bi bi-exclamation-triangle"></i>
-      Transactions can not be loaded. Erigon OTS namespace is disabled.
+      Transactions can not be loaded. Erigon OTS namespace is disabled or Ethereum node has
+      limitations or Erigon error has occurred. Check Erigon or node logs.
     </div>
 
-    <div v-if="!appStore.otsApiError && !noAddresses">
-      <div v-if="!loadingTxns">
-        <div class="latest-transactions">
-          <TransactionsListItem
-            v-for="t in transactions"
-            :address="address"
-            :transactions="t"
-            :key="t[0].hash"
-            :isDetailsTab="activeTab === 'details'"
-          />
-        </div>
+    <div v-if="!appStore.otsApiError && !loadingTxns && !noAddresses && transactions.length">
+      <div class="latest-transactions">
+        <TransactionsListItem
+          v-for="t in transactions"
+          :address="address"
+          :transactions="t"
+          :key="t[0].hash"
+          :isDetailsTab="activeTab === 'details'"
+        />
       </div>
       <TransactionsPagination
-        v-if="!loadingTxns"
         @openPage="openPage"
         :isFirstPage
         :isLastPage
