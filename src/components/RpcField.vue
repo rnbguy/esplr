@@ -74,7 +74,7 @@ const handleRpcUrlInput = () => {
     localStorage.setItem('rpcUrl', rpcUrl.value);
   }
   if (!rpcUrl.value.length) {
-    localStorage.clear();
+    localStorage.removeItem('rpcUrl');
   }
 };
 
@@ -82,7 +82,7 @@ const isUrlInLocalStorage = () => !!localStorage.getItem('rpcUrl')?.length;
 
 const handleRememberMe = () => {
   if (remember.value) {
-    localStorage.clear();
+    localStorage.removeItem('rpcUrl');
   } else if (rpcUrl.value.length) {
     localStorage.setItem('rpcUrl', rpcUrl.value);
   }

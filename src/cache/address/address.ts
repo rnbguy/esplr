@@ -11,6 +11,13 @@ import { LocalStorageMainPageStorage } from '@/cache/main-page/localstorage-main
 import { type AddressStorage } from '@/cache/address/address-storage';
 import { CACHE_LOCALSTORAGE } from '@/config';
 
+let cachedSettings = false;
+const localStorageSettings = localStorage.getItem('settings');
+if (localStorageSettings?.length) {
+  const cache = JSON.parse(localStorageSettings);
+  cachedSettings = cache.localStorage.cache;
+}
+
 const hasAnyLocalStorage =
   LocalStorageMainPageStorage.hasAnyDataInLocalStorage() ||
   LocalStorageAddressStorage.hasAnyDataInLocalStorage();
@@ -18,7 +25,7 @@ const hasAnyLocalStorage =
 export class AddressCache {
   private static instance: AddressCache;
   private static strategy: AddressStorage =
-    CACHE_LOCALSTORAGE || hasAnyLocalStorage
+    CACHE_LOCALSTORAGE || hasAnyLocalStorage || cachedSettings
       ? LocalStorageAddressStorage.getInstance()
       : MemoryAddressStorage.getInstance();
 

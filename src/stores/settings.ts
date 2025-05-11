@@ -3,10 +3,17 @@ import { defineStore } from 'pinia';
 import { SHOW_PRICES } from '@/config';
 import { CACHE_INTERVAL_MINUTES } from '@/config';
 
+let cached = null;
+const localStorageSettings = localStorage.getItem('settings');
+if (localStorageSettings?.length) {
+  cached = JSON.parse(localStorageSettings);
+}
+
 export const useSettingsStore = defineStore('settings', () => {
-  const showUsdPrices = ref(SHOW_PRICES);
+  const showUsdPrices = ref(cached?.usdPrices ?? SHOW_PRICES);
   const forciblyDisabledPrices = ref(false);
-  const cacheUpdateInterval = ref(CACHE_INTERVAL_MINUTES);
+  const cacheUpdateInterval = ref(cached?.cacheUpdateInterval ?? CACHE_INTERVAL_MINUTES);
+  const cacheSettingsLocalStorage = ref(!!localStorageSettings?.length);
 
   function toggleShowUsdPrices() {
     showUsdPrices.value = !showUsdPrices.value;
@@ -24,6 +31,10 @@ export const useSettingsStore = defineStore('settings', () => {
     cacheUpdateInterval.value = minutes;
   }
 
+  function setCacheSettingsLocalStorage(value: boolean) {
+    cacheSettingsLocalStorage.value = value;
+  }
+
   return {
     showUsdPrices,
     toggleShowUsdPrices,
@@ -32,5 +43,7 @@ export const useSettingsStore = defineStore('settings', () => {
     forciblyDisabledPrices,
     cacheUpdateInterval,
     setCacheUpdateInterval,
+    cacheSettingsLocalStorage,
+    setCacheSettingsLocalStorage,
   };
 });

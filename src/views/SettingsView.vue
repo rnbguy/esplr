@@ -21,7 +21,6 @@ const hasMainPageCache = ref(mainDataCache.hasAnyData());
 const settingsStore = useSettingsStore();
 const appStore = useAppStore();
 const priceError = ref(false);
-const cacheUpdateIntervals = [1, 5, 15, 60];
 const urlRouting = ref(sessionStorage.getItem('urlRouting') === 'false' ? false : true);
 
 const networkName = computed(() =>
@@ -37,6 +36,7 @@ onMounted(() => {
 const handleDisconnect = async () => {
   cache.clearAll();
   mainDataCache.clear();
+  localStorage.removeItem('settings');
   location.reload();
 };
 
@@ -72,6 +72,22 @@ const tryPrice = async () => {
   settingsStore.setForciblyDisabledPrices(false);
 };
 
+const isSettingsInLocalStorage = () => !!localStorage.getItem('settings')?.length;
+
+const updateSettingsInLocalStorage = () => {
+  const settings = {
+    localStorage: {
+      cache:
+        AddressCache.getStrategyType() === 'localstorage' &&
+        MainPageCache.getStrategyType() === 'localstorage',
+      settings: true,
+    },
+    usdPrices: settingsStore.showUsdPrices,
+    cacheUpdateInterval: settingsStore.cacheUpdateInterval,
+  };
+  localStorage.setItem('settings', JSON.stringify(settings));
+};
+
 const handleShowUsdPrices = async () => {
   if (!settingsStore.showUsdPrices) {
     try {
@@ -81,10 +97,16 @@ const handleShowUsdPrices = async () => {
     }
   }
   settingsStore.toggleShowUsdPrices();
+  if (isSettingsInLocalStorage()) {
+    updateSettingsInLocalStorage();
+  }
 };
 
 const handleCacheUpdateInterval = (minutes: number) => {
   settingsStore.setCacheUpdateInterval(minutes);
+  if (isSettingsInLocalStorage()) {
+    updateSettingsInLocalStorage();
+  }
 };
 
 const toggleUrlRouting = () => {
@@ -151,7 +173,7 @@ const toggleUrlRouting = () => {
   <div>
     <h4>Cache update interval in minutes:</h4>
     <Checkbox
-      v-for="interval in cacheUpdateIntervals"
+      v-for="interval in [1, 5, 15, 60]"
       :key="interval"
       :label="String(interval)"
       :checked="settingsStore.cacheUpdateInterval === interval"

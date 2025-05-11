@@ -1,16 +1,25 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import Checkbox from '@/components/Checkbox.vue';
 import { MainPageCache } from '@/cache/main-page/main-page';
 import { AddressCache } from '@/cache/address/address';
+import { useSettingsStore } from '@/stores/settings';
 
+const settingsStore = useSettingsStore();
 const cacheTypeMainPage = ref(MainPageCache.getStrategyType());
 const cacheTypeAddressPage = ref(AddressCache.getStrategyType());
 const warning = ref(false);
 
+const cacheInLocalStorage = computed(
+  () => cacheTypeMainPage.value === 'localstorage' && cacheTypeAddressPage.value === 'localstorage'
+);
+
 const switchCache = () => {
   try {
     switchLocalStorageCache();
+    if (isSettingsInLocalStorage()) {
+      updateSettingsInLocalStorage();
+    }
   } catch (error) {
     localStorage.clear();
     showWarning();
@@ -69,7 +78,39 @@ const showWarning = () => {
   }, 7000);
 };
 
-// const switchLocalStorageSettings = () => {};
+const isSettingsInLocalStorage = () => !!localStorage.getItem('settings')?.length;
+
+const switchLocalStorageSettings = () => {
+  if (isSettingsInLocalStorage()) {
+    localStorage.removeItem('settings');
+  } else {
+    const settings = {
+      localStorage: {
+        cache: cacheInLocalStorage.value,
+        settings: true,
+      },
+      usdPrices: settingsStore.showUsdPrices,
+      cacheUpdateInterval: settingsStore.cacheUpdateInterval,
+    };
+    localStorage.setItem('settings', JSON.stringify(settings));
+  }
+
+  settingsStore.setCacheSettingsLocalStorage(isSettingsInLocalStorage());
+};
+
+const updateSettingsInLocalStorage = () => {
+  const settings = {
+    localStorage: {
+      cache:
+        AddressCache.getStrategyType() === 'localstorage' &&
+        MainPageCache.getStrategyType() === 'localstorage',
+      settings: true,
+    },
+    usdPrices: settingsStore.showUsdPrices,
+    cacheUpdateInterval: settingsStore.cacheUpdateInterval,
+  };
+  localStorage.setItem('settings', JSON.stringify(settings));
+};
 </script>
 
 <template>
@@ -86,13 +127,13 @@ const showWarning = () => {
         on disk.
       </p>
       <div>Use local storage for:</div>
-      <Checkbox
-        @onChange="switchCache"
-        label="Cache"
-        :checked="cacheTypeMainPage === 'localstorage' && cacheTypeAddressPage === 'localstorage'"
-      />
+      <Checkbox @onChange="switchCache" label="Cache" :checked="cacheInLocalStorage" />
       <br />
-      <!-- <Checkbox @onChange="switchLocalStorageSettings" label="Settings" :checked="true" /> -->
+      <Checkbox
+        @onChange="switchLocalStorageSettings"
+        label="Settings"
+        :checked="settingsStore.cacheSettingsLocalStorage"
+      />
     </div>
     <p v-if="warning" class="warning">
       <i class="bi bi-exclamation-triangle"></i>

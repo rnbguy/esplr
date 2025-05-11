@@ -29,3 +29,5 @@ coverage
 
 *.tsbuildinfo
 *.patch
+
+/patches_history
