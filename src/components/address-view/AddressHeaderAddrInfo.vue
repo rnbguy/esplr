@@ -4,8 +4,12 @@ import { formatTimestampLocalWithoutYear } from '@/utils/utils';
 import { AddressCache } from '@/cache/address/address';
 import { MainPageCache } from '@/cache/main-page/main-page';
 import { useAppStore } from '@/stores/app';
+import { useSettingsStore } from '@/stores/settings';
+import '@/assets/sourcify.svg';
 
 const appStore = useAppStore();
+const settingsStore = useSettingsStore();
+
 const emit = defineEmits(['updateData']);
 const cache = AddressCache.getInstance();
 const mainDataCache = MainPageCache.getInstance();
@@ -19,6 +23,7 @@ const props = defineProps<{
   loadingUnspent: boolean;
   isContract: boolean;
   unspentError: boolean;
+  isSourcify: boolean;
 }>();
 
 onMounted(() => {
@@ -51,8 +56,8 @@ const toggleFavorite = () => {
         <b>Address:</b>
         {{ address }}
       </div>
-      <div v-if="isContract" class="warning">
-        <i class="bi bi-info-circle"></i> Contract address
+      <div v-if="isContract" class="contract-info">
+        <div class="warning"><i class="bi bi-info-circle"></i> Contract address</div>
       </div>
 
       <div class="ens-name" v-if="ensName.length || loadingUnspent">
@@ -80,12 +85,33 @@ const toggleFavorite = () => {
       </div>
 
       <div class="actions">
-        <button @click="toggleFavorite" class="btn btn-dark">
-          <i v-if="isFavorite" class="bi bi-star-fill"></i>
-          <i v-else class="bi bi-star"></i>
-          {{ isFavorite ? 'Unfavorite' : 'Add to favorite' }}
-        </button>
-        <div class="update-btn-wrapper only-mobile">
+        <div class="actions-favorites-sourcify">
+          <button @click="toggleFavorite" class="btn btn-dark">
+            <i v-if="isFavorite" class="bi bi-star-fill"></i>
+            <i v-else class="bi bi-star"></i>
+            {{ isFavorite ? 'Unfavorite' : 'Add to favorite' }}
+          </button>
+          <div v-if="settingsStore.sourcifyUrl.length">
+            <RouterLink
+              v-if="!isSourcify"
+              :class="['btn', 'btn-dark', 'sourcify-btn', { disabled: !isContract }]"
+              :to="`/address/${address}/sourcify`"
+              title="Only available for contract addresses"
+              :disabled="!isContract"
+            >
+              <img class="sourcify-icon" src="@/assets/sourcify.svg" alt="Sourcify logo" />
+              Sourcify
+            </RouterLink>
+            <RouterLink
+              v-if="isSourcify"
+              class="btn btn-dark sourcify-btn"
+              :to="`/address/${address}`"
+            >
+              📃 Txs & Balances
+            </RouterLink>
+          </div>
+        </div>
+        <div class="update-btn-wrapper update-btn-wrapper-mobile only-mobile">
           <button @click="handleUpdateData" class="btn btn-dark update-btn">
             <i class="bi bi-arrow-clockwise"></i> Update
           </button>
@@ -109,27 +135,19 @@ const toggleFavorite = () => {
 </template>
 
 <style scoped>
-.only-desktop {
-  display: none;
-}
-
-@media (min-width: 685px) {
-  .only-desktop {
-    display: block;
-  }
-}
-
-@media (min-width: 685px) {
-  .only-mobile {
-    display: none;
-  }
-}
-
 .actions {
-  margin-top: 5px;
   display: flex;
+  flex-direction: column;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: flex-start;
+  gap: 7px;
+  margin-top: 5px;
+}
+
+@media (min-width: 475px) {
+  .actions {
+    flex-direction: row;
+  }
 }
 
 .address-info {
@@ -154,14 +172,32 @@ const toggleFavorite = () => {
 .last-update {
   text-align: right;
   font-size: 17px;
-  margin-bottom: 15px;
-  margin-top: 2px;
+  margin-left: 7px;
+}
+
+@media (min-width: 475px) {
+  .last-update {
+    margin-bottom: 15px;
+    margin-top: 2px;
+    margin-left: 0px;
+  }
 }
 
 .update-btn-wrapper {
-  width: 105px;
   min-width: 105px;
   text-align: right;
+  margin-top: -1px;
+}
+
+.update-btn-wrapper-mobile {
+  display: flex;
+  align-items: center;
+}
+
+@media (min-width: 475px) {
+  .update-btn-wrapper-mobile {
+    display: block;
+  }
 }
 
 .update-btn {
@@ -182,5 +218,55 @@ const toggleFavorite = () => {
 
 .ens-name {
   word-break: break-word;
+}
+
+.contract-info {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 5px;
+}
+
+.sourcify-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  line-height: 1.15;
+  color: white;
+}
+
+.sourcify-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.actions-favorites-sourcify {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 162px;
+}
+
+@media (min-width: 375px) {
+  .actions-favorites-sourcify {
+    flex-direction: row;
+  }
+}
+
+.only-desktop {
+  display: none !important;
+}
+
+@media (min-width: 685px) {
+  .only-desktop {
+    display: block !important;
+  }
+}
+
+@media (min-width: 685px) {
+  .only-mobile {
+    display: none !important;
+  }
 }
 </style>

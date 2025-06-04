@@ -37,6 +37,10 @@
   background: var(--light-beige) !important;
 }
 
+.success {
+  color: var(--success);
+}
+
 @media (prefers-color-scheme: dark) {
   .warning {
     color: var(--warning);
@@ -107,16 +111,19 @@
 .btn.disabled:active {
   opacity: 0.7;
   cursor: default;
+  pointer-events: none;
 }
 
 .btn-dark.disabled:active {
   background: var(--ash-grey);
+  pointer-events: none;
 }
 
 @media (prefers-color-scheme: dark) {
   .btn.disabled,
   .btn.disabled:active {
     opacity: 0.6;
+    pointer-events: none;
   }
 }
 
@@ -183,20 +190,54 @@
   }
 }
 
-.bi-box:before                     { content: "📦"; }
-.bi-trash:before { content: "🗑️"; }
-.bi-copy:before { content: "©"; }
-.bi-file-earmark-text:before       { content: "📃"; }
-.bi-arrow-clockwise:before  { content: "🔄"; }
-.bi-star:before { content: "☆"; }
-.bi-star-fill:before { content: "★"; }
-.bi-dash-circle-fill:before { content: "⛔️"; }
-.bi-plus-circle-fill:before { content: "❇️"; }
-.bi-x-circle-fill:before { content: "🔴"; }
-.bi-check-circle-fill:before { content: "✅"; }
-.bi-exclamation-triangle:before { content: "⚠️"; }
-.bi-chevron-left:before { content: "⬅️"; }
-.bi-chevron-right:before { content: "➡️"; }
-.bi-info-circle:before { content: "ℹ"; }
-.bi-check2:before { content: "✓"; }
-.bi-door-closed:before { content: "🚪"; }
+.bi-box:before {
+  content: '📦';
+}
+.bi-trash:before {
+  content: '🗑️';
+}
+.bi-copy:before {
+  content: '©';
+}
+.bi-file-earmark-text:before {
+  content: '📃';
+}
+.bi-arrow-clockwise:before {
+  content: '🔄';
+}
+.bi-star:before {
+  content: '☆';
+}
+.bi-star-fill:before {
+  content: '★';
+}
+.bi-dash-circle-fill:before {
+  content: '⛔️';
+}
+.bi-plus-circle-fill:before {
+  content: '❇️';
+}
+.bi-x-circle-fill:before {
+  content: '🔴';
+}
+.bi-check-circle-fill:before {
+  content: '✅';
+}
+.bi-exclamation-triangle:before {
+  content: '⚠️';
+}
+.bi-chevron-left:before {
+  content: '⬅️';
+}
+.bi-chevron-right:before {
+  content: '➡️';
+}
+.bi-info-circle:before {
+  content: 'ℹ';
+}
+.bi-check2:before {
+  content: '✓';
+}
+.bi-door-closed:before {
+  content: '🚪';
+}

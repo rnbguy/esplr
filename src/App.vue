@@ -40,6 +40,7 @@ const handleConnect = async (url: string) => {
   try {
     const netVersion = await provider.value.call('net_version');
     appStore.setNetworkName(getChainIdName(netVersion));
+    appStore.setChainId(netVersion);
   } catch (e) {
     console.error('connection error:', e);
     connectionError.value = true;

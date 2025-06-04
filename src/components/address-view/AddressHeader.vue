@@ -22,6 +22,7 @@ const props = defineProps<{
   tokensPricesError: boolean;
   unspentPriceError: boolean;
   unspentError: boolean;
+  isSourcify: boolean;
 }>();
 
 const handleUpdateData = (addresses: string[]) => {
@@ -39,6 +40,7 @@ const handleUpdateData = (addresses: string[]) => {
       :isContract="!!props.tokenCreator"
       :loadingUnspent="loadingUnspent"
       :unspentError="unspentError"
+      :isSourcify="isSourcify"
       @updateData="handleUpdateData"
     />
   </div>
@@ -62,6 +64,7 @@ const handleUpdateData = (addresses: string[]) => {
     </div>
 
     <TokensList
+      v-if="!isSourcify"
       :unspentEth="sumBalance"
       :unspentEthUsd="unspentEthUsd"
       :tokens="tokens"

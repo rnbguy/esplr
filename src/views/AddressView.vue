@@ -27,6 +27,7 @@ import type {
 import AddressHeader from '@/components/address-view/AddressHeader.vue';
 import FavoritesHeader from '@/components/address-view/FavoritesHeader.vue';
 import TransactionsList from '@/components/address-view/TransactionsList.vue';
+import Sourcify from '@/components/address-view/Sourcify.vue';
 
 import { useSettingsStore } from '@/stores/settings';
 import { useAppStore } from '@/stores/app';
@@ -73,6 +74,7 @@ const isFirstPage = ref(true);
 const isLastPage = ref(false);
 const currentPage = ref(1);
 
+const isSourcify = computed(() => route.name === 'sourcify');
 const isFavorites = computed(() => route.name === 'favorites');
 const favorites = ref<FavoriteAddress[]>([]);
 
@@ -699,6 +701,7 @@ const deleteFavorite = async (address: string) => {
     :tokensPricesError="tokensPricesError"
     :unspentPriceError="unspentPriceError"
     :unspentError="unspentError"
+    :isSourcify="isSourcify"
     @updateData="updateData"
   />
   <FavoritesHeader
@@ -721,6 +724,7 @@ const deleteFavorite = async (address: string) => {
   />
 
   <TransactionsList
+    v-if="!isSourcify"
     :loadingTxns="loadingTxns"
     :address="address"
     :activeTab="activeTab"
@@ -737,4 +741,6 @@ const deleteFavorite = async (address: string) => {
     @loadInternalTransactions="loadInternalTransactions"
     @openPage="openPage"
   />
+
+  <Sourcify v-if="isSourcify && address.length" :address="address" />
 </template>

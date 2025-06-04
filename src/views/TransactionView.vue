@@ -89,15 +89,6 @@ const mount = async (tx: string) => {
   txnInfo.value = txn;
   txnReceipt.value = txn.receipt ?? null;
 
-  // console.log('Transaction:', txn);
-  // const address = txn.receipt.logs[3]?.address;
-  // const topics = txn.receipt.logs[3]?.topics;
-  // const data = txn.receipt.logs[3]?.data;
-  // if (topics) {
-  //   const test = decodeEvent(address, topics, data);
-  //   console.log('Decoded event:', test);
-  // }
-
   const { hash, from, to, blockNumber } = txn.info;
   try {
     blockError.value = false;

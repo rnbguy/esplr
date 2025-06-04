@@ -5,6 +5,7 @@ Explore Ethereum-like blockchain privately with your RPC URL.
 - 🔒 No 3rd party services: only private RPC requests
 - 💹 ETH and token balances, transaction history
 - 💵 On-chain USD price conversion from oracles
+- 📜 Integration with Sourcify for smart contract source code verification
 - 🪶 100KB gzipped. 3 files: 1 html, 1 css, 1 js
 
 ![](https://github.com/user-attachments/assets/61bbfb4c-858c-4fee-8a25-ebb3871b8f70)
@@ -38,6 +39,10 @@ Second call would be cached and instant.
 > Are ERC-721 NFTs fully supported?
 
 Work in progress. They will be shown in UI in one of the next updates.
+
+> Do you support local or remote Sourcify integration?
+
+Both! Check out instructions below to set up your own Sourcify instance.
 
 > Which frontend libraries are used?
 
@@ -107,6 +112,32 @@ Some features are not present outside of Erigon. The app uses archive node API /
 - Reth nodes do not have tx history because of lack of indexes. They indicated
   willingness to [fix the issue](https://github.com/paradigmxyz/reth/issues/4799)
 - Geth, Nethermind do not have proper low-resource archive mode, so they are not supported for querying tx history
+
+### Sourcify
+
+esplr supports Sourcify [(sourcify.dev)](https://sourcify.dev) integration.
+Sourcify allows to verify smart contract source code for eth. To set it up:
+
+1. Download `manifest.json`
+    - `curl -L -O https://repo-backup.sourcify.dev/manifest.json`
+2. Download all files from `manifest.json`
+    - To fetch chain-specific archives for eth mainnet (chain id 1):
+    - `CHAIN_ID=1; jq -r '.files[].path' manifest.json | grep -E "(full|partial)_match\.${CHAIN_ID}\." | xargs -I {} curl -L -O https://repo-backup.sourcify.dev/{}`
+    - Alternatively, there is 260GB+ archive for all chains:
+    - `jq -r '.files[].path' manifest.json | xargs -I {} curl -L -O https://repo-backup.sourcify.dev/{}`
+3. Extract files from archives:
+    - `for file in *.tar.gz; do echo "Extracting $file..."; tar -xf "$file"; done`
+4. Normalize names of addresses directories:
+    - Copy script
+    - `cp scripts/normalize_addresses.sh /path/to/repository`
+    - Chain-specific normalization (takes 2+ hours):
+    - `./normalize_addresses.sh --chains 1`
+    - Normalization of all chains (takes 24+ hours):
+    - `./normalize_addresses.sh`
+5. Run any static file server with CORS enabled on the repository dir:
+    - `npm install -g http-server@14.1.1`
+    - `http-server /path/to/repository --cors -p 2015`
+6. In esplr settings, specify address and port of the static file server
 
 ### Speed
 

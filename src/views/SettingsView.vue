@@ -7,6 +7,7 @@ import Checkbox from '@/components/Checkbox.vue';
 import { useAppStore } from '@/stores/app';
 import { useSettingsStore } from '@/stores/settings';
 import LocalStorage from '@/components/settings-view/LocalStorage.vue';
+import SettingsSourcify from '@/components/settings-view/SettingsSourcify.vue';
 
 const provider = inject<Ref<Web3Provider>>('provider');
 if (!provider) throw new Error('Provider not found!');
@@ -136,6 +137,8 @@ const toggleUrlRouting = () => {
       Disconnect <i class="bi bi-door-closed"></i>
     </button>
   </div>
+
+  <SettingsSourcify />
 
   <div>
     <h4>URL routing</h4>

@@ -24,6 +24,11 @@ const router = createRouter({
       component: AddressView,
     },
     {
+      path: '/address/:address/sourcify',
+      name: 'sourcify',
+      component: AddressView,
+    },
+    {
       path: '/tx/:tx',
       name: 'transaction',
       component: TransactionView,
