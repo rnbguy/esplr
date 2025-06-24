@@ -9,14 +9,19 @@ if (localStorageSettings?.length) {
   cached = JSON.parse(localStorageSettings);
 }
 
+const SOURCIFY_URL = import.meta.env.VITE_SOURCIFY_URL || '';
 const localStorageSourcifyUrl = localStorage.getItem('sourcifyUrl') ?? '';
+if (SOURCIFY_URL.length && localStorageSourcifyUrl.length) {
+  localStorage.removeItem('sourcifyUrl');
+}
+const initialSourcifyUrl = SOURCIFY_URL.length ? SOURCIFY_URL : localStorageSourcifyUrl;
 
 export const useSettingsStore = defineStore('settings', () => {
   const showUsdPrices = ref(cached?.usdPrices ?? SHOW_PRICES);
   const forciblyDisabledPrices = ref(false);
   const cacheUpdateInterval = ref(cached?.cacheUpdateInterval ?? CACHE_INTERVAL_MINUTES);
   const cacheSettingsLocalStorage = ref(!!localStorageSettings?.length);
-  const sourcifyUrl = ref(localStorageSourcifyUrl);
+  const sourcifyUrl = ref(initialSourcifyUrl);
 
   function toggleShowUsdPrices() {
     showUsdPrices.value = !showUsdPrices.value;

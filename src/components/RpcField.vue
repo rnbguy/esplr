@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import Checkbox from '@/components/Checkbox.vue';
+import { hasProtocol, hasValidProtocol, addProtocol } from '@/utils/url';
 
 const emit = defineEmits(['connect']);
 defineProps<{ connectionError: boolean }>();
@@ -10,6 +11,8 @@ const rpcUrl = ref(RPC_URL);
 const remember = ref(false);
 
 const error = ref(false);
+
+const isUrlInLocalStorage = () => !!localStorage.getItem('rpcUrl')?.length;
 
 onMounted(() => {
   // auto connect
@@ -39,38 +42,6 @@ const handleConnect = async () => {
   emit('connect', url);
 };
 
-function addProtocol(url: string) {
-  if (url.startsWith('127.0.0.1') || url.startsWith('localhost')) {
-    return `http://${url}`;
-  }
-  return `https://${url}`;
-}
-
-function hasValidProtocol(url: string) {
-  try {
-    const parsedUrl = new URL(url);
-    return (
-      parsedUrl.protocol === 'http:' ||
-      parsedUrl.protocol === 'https:' ||
-      parsedUrl.protocol === 'localhost:'
-    );
-  } catch {
-    return true;
-  }
-}
-
-function hasProtocol(url: string) {
-  try {
-    const parsedUrl = new URL(url);
-    if (parsedUrl.protocol === 'localhost:') {
-      return false;
-    }
-    return parsedUrl.protocol.length > 0;
-  } catch {
-    return false; // Invalid URL
-  }
-}
-
 const handleRpcUrlInput = () => {
   if (remember.value) {
     localStorage.setItem('rpcUrl', rpcUrl.value);
@@ -79,8 +50,6 @@ const handleRpcUrlInput = () => {
     localStorage.removeItem('rpcUrl');
   }
 };
-
-const isUrlInLocalStorage = () => !!localStorage.getItem('rpcUrl')?.length;
 
 const handleRememberMe = () => {
   if (remember.value) {

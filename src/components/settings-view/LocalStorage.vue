@@ -1,77 +1,28 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import Checkbox from '@/components/Checkbox.vue';
-import { MainPageCache } from '@/cache/main-page/main-page';
-import { AddressCache } from '@/cache/address/address';
 import { useSettingsStore } from '@/stores/settings';
+import MainPageAndAddressCacheManager from '@/cache/main-page-and-address-cache-manager';
+
+const emit = defineEmits(['updateSettingsInLocalStorage']);
 
 const settingsStore = useSettingsStore();
-const cacheTypeMainPage = ref(MainPageCache.getStrategyType());
-const cacheTypeAddressPage = ref(AddressCache.getStrategyType());
 const warning = ref(false);
 
+const cacheType = ref('memory');
+try {
+  cacheType.value = MainPageAndAddressCacheManager.getStrategyType();
+} catch (error) {
+  showWarning();
+  settingsStore.setCacheSettingsLocalStorage(false);
+  console.error('Error initializing cache type.', error);
+}
+
 const cacheInLocalStorage = computed(
-  () => cacheTypeMainPage.value === 'localstorage' && cacheTypeAddressPage.value === 'localstorage'
+  () => cacheType.value === 'localstorage'
 );
 
-const switchCache = () => {
-  try {
-    switchLocalStorageCache();
-    if (isSettingsInLocalStorage()) {
-      updateSettingsInLocalStorage();
-    }
-  } catch (error) {
-    localStorage.clear();
-    showWarning();
-    console.error('Error switching cache:', error);
-    MainPageCache.useMemoryStorage();
-    AddressCache.useMemoryStorage();
-  }
-};
-
-const switchLocalStorageCache = () => {
-  warning.value = false;
-  let cacheTypeMain = MainPageCache.getStrategyType();
-  let cacheTypeAddress = AddressCache.getStrategyType();
-
-  if (cacheTypeMain !== cacheTypeAddress) {
-    console.log(
-      'Warning: Address cache and main page cache have different storage types. This may cause issues.'
-    );
-    MainPageCache.useMemoryStorage();
-    AddressCache.useMemoryStorage();
-    localStorage.clear();
-    showWarning();
-    return;
-  }
-
-  if (cacheTypeMain === 'memory') {
-    MainPageCache.useLocalStorage();
-    AddressCache.useLocalStorage();
-  } else {
-    MainPageCache.useMemoryStorage();
-    AddressCache.useMemoryStorage();
-  }
-
-  cacheTypeMain = MainPageCache.getStrategyType();
-  cacheTypeAddress = AddressCache.getStrategyType();
-
-  if (cacheTypeMain !== cacheTypeAddress) {
-    console.log(
-      'Warning: Address cache and main page cache have different storage types. This may cause issues.'
-    );
-    MainPageCache.useMemoryStorage();
-    AddressCache.useMemoryStorage();
-    localStorage.clear();
-    showWarning();
-    return;
-  }
-
-  cacheTypeMainPage.value = cacheTypeMain;
-  cacheTypeAddressPage.value = cacheTypeAddress;
-};
-
-const showWarning = () => {
+function showWarning() {
   warning.value = true;
   setTimeout(() => {
     warning.value = false;
@@ -80,36 +31,42 @@ const showWarning = () => {
 
 const isSettingsInLocalStorage = () => !!localStorage.getItem('settings')?.length;
 
+const switchCache = () => {
+  try {
+    switchLocalStorageCache();
+    if (isSettingsInLocalStorage()) {
+      emit('updateSettingsInLocalStorage');
+    }
+  } catch (error) {
+    localStorage.clear();
+    showWarning();
+    console.error('Error switching cache:', error);
+    settingsStore.setCacheSettingsLocalStorage(false);
+    MainPageAndAddressCacheManager.useMemoryStorage();
+  }
+};
+
+const switchLocalStorageCache = () => {
+  warning.value = false;
+  const currentType = MainPageAndAddressCacheManager.getStrategyType();
+
+  if (currentType === 'memory') {
+    MainPageAndAddressCacheManager.useLocalStorage();
+  } else {
+    MainPageAndAddressCacheManager.useMemoryStorage();
+  }
+
+  cacheType.value = MainPageAndAddressCacheManager.getStrategyType();
+};
+
 const switchLocalStorageSettings = () => {
   if (isSettingsInLocalStorage()) {
     localStorage.removeItem('settings');
   } else {
-    const settings = {
-      localStorage: {
-        cache: cacheInLocalStorage.value,
-        settings: true,
-      },
-      usdPrices: settingsStore.showUsdPrices,
-      cacheUpdateInterval: settingsStore.cacheUpdateInterval,
-    };
-    localStorage.setItem('settings', JSON.stringify(settings));
+    emit('updateSettingsInLocalStorage');
   }
 
   settingsStore.setCacheSettingsLocalStorage(isSettingsInLocalStorage());
-};
-
-const updateSettingsInLocalStorage = () => {
-  const settings = {
-    localStorage: {
-      cache:
-        AddressCache.getStrategyType() === 'localstorage' &&
-        MainPageCache.getStrategyType() === 'localstorage',
-      settings: true,
-    },
-    usdPrices: settingsStore.showUsdPrices,
-    cacheUpdateInterval: settingsStore.cacheUpdateInterval,
-  };
-  localStorage.setItem('settings', JSON.stringify(settings));
 };
 </script>
 

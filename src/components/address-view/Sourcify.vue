@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue';
-import { net } from '@/utils/network';
+import { onMounted, ref, computed, inject } from 'vue';
 import { useSettingsStore } from '@/stores/settings';
 import { useAppStore } from '@/stores/app';
+
+const net = inject<Function>('net');
+if (!net) throw new Error('Net not found!');
 
 const loadingMetadata = ref(false);
 const metadata = ref({});
@@ -85,14 +87,15 @@ const fetchMetadata = async () => {
   </div>
 
   <div class="warning" v-if="noMetadata">
-    ⚠️ No data found for this address in sourcify archive. Check the following:
+    ⚠️ No data found for this contract in sourcify archive. Check the following:
     <ul>
+      <li>address is a contract</li>
       <li>server is running and CORS headers configured properly</li>
       <li>
         server root points to path where directories "full_match" and "partial_match" are located
         alongside
       </li>
-      <li>address is presented inside your sourcify archive</li>
+      <li>contract address is presented inside your sourcify archive</li>
       <li>name of the directory which points to the address is in lowercase format</li>
     </ul>
   </div>

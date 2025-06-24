@@ -94,10 +94,9 @@ const toggleFavorite = () => {
           <div v-if="settingsStore.sourcifyUrl.length">
             <RouterLink
               v-if="!isSourcify"
-              :class="['btn', 'btn-dark', 'sourcify-btn', { disabled: !isContract }]"
+              :class="['btn', 'btn-dark', 'sourcify-btn']"
               :to="`/address/${address}/sourcify`"
               title="Only available for contract addresses"
-              :disabled="!isContract"
             >
               <img class="sourcify-icon" src="@/assets/sourcify.svg" alt="Sourcify logo" />
               Sourcify

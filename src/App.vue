@@ -16,12 +16,27 @@ const settingsStore = useSettingsStore();
 
 const connectionError = ref(false);
 const connected = ref(false);
-const provider = ref<Web3Provider>();
-
-provide('provider', provider);
 
 // All network requests from the app are done from this file
 // ---------------------------------------------------------
+
+// used for blockchain RPC requests
+const provider = ref<Web3Provider>();
+
+// used for Sourcify and other regular non RPC requests
+const microFtch = ftch(fetch, {
+  isValidRequest: (reqUrl) => {
+    // This disables all requests which
+    // are not headed to Sourcify URL.
+    const { sourcifyUrl } = settingsStore;
+    if (!reqUrl || !reqUrl.length || !sourcifyUrl.length) return false;
+    return reqUrl.startsWith(sourcifyUrl);
+  },
+});
+const net = (url: string) => microFtch(url);
+
+provide('provider', provider);
+provide('net', net);
 
 const handleConnect = async (url: string) => {
   connectionError.value = false;

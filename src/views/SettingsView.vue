@@ -8,6 +8,7 @@ import { useAppStore } from '@/stores/app';
 import { useSettingsStore } from '@/stores/settings';
 import LocalStorage from '@/components/settings-view/LocalStorage.vue';
 import SettingsSourcify from '@/components/settings-view/SettingsSourcify.vue';
+import MainPageAndAddressCacheManager from '@/cache/main-page-and-address-cache-manager';
 
 const provider = inject<Ref<Web3Provider>>('provider');
 if (!provider) throw new Error('Provider not found!');
@@ -27,6 +28,8 @@ const urlRouting = ref(sessionStorage.getItem('urlRouting') === 'false' ? false 
 const networkName = computed(() =>
   appStore.networkName === 'Mainnet' ? 'Ethereum Mainnet' : appStore.networkName
 );
+
+const isSettingsInLocalStorage = () => !!localStorage.getItem('settings')?.length;
 
 onMounted(() => {
   cashedAddresses.value = cache.allCachedAddresses();
@@ -73,14 +76,10 @@ const tryPrice = async () => {
   settingsStore.setForciblyDisabledPrices(false);
 };
 
-const isSettingsInLocalStorage = () => !!localStorage.getItem('settings')?.length;
-
 const updateSettingsInLocalStorage = () => {
   const settings = {
     localStorage: {
-      cache:
-        AddressCache.getStrategyType() === 'localstorage' &&
-        MainPageCache.getStrategyType() === 'localstorage',
+      cache: MainPageAndAddressCacheManager.getStrategyType() === 'localstorage',
       settings: true,
     },
     usdPrices: settingsStore.showUsdPrices,
@@ -128,7 +127,7 @@ const toggleUrlRouting = () => {
   <div class="connected-to">
     Connected to
     <b>{{ networkName }}</b
-    >:
+    > (Chain ID {{ appStore.chainId }}):
     <br />
     {{ appStore.rpcUrl }}
   </div>
@@ -152,7 +151,7 @@ const toggleUrlRouting = () => {
     </div>
   </div>
 
-  <LocalStorage />
+  <LocalStorage @updateSettingsInLocalStorage="updateSettingsInLocalStorage" />
 
   <div>
     <h4>Tokens Prices:</h4>
@@ -195,6 +194,7 @@ const toggleUrlRouting = () => {
     </ul>
     <div v-if="hasMainPageCache">Main page is cached.</div>
     <div v-if="favoriteAddresses.length">Favorites addresses list is cached.</div>
+    <div v-if="settingsStore.cacheSettingsLocalStorage">Settings is cached in the browser's local storage on disk.</div>
     <div class="clear-cache-btn-wrapper">
       <button
         v-if="cashedAddresses.length || hasMainPageCache"
@@ -208,7 +208,7 @@ const toggleUrlRouting = () => {
       </button>
     </div>
     <div v-if="!hasMainPageCache && !favoriteAddresses.length && !cashedAddresses.length">
-      No cached data.
+      No cached data for addresses.
     </div>
   </div>
 </template>
@@ -269,5 +269,9 @@ h4 {
 .clear-cache-btn-wrapper {
   display: flex;
   gap: 7px;
+}
+
+.description {
+  word-wrap: break-word;
 }
 </style>

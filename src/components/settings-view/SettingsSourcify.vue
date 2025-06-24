@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, inject, type Ref } from 'vue';
-import { net } from '@/utils/network';
+import { onMounted, ref, inject } from 'vue';
 import { useSettingsStore } from '@/stores/settings';
 import Checkbox from '@/components/Checkbox.vue';
+import { hasProtocol, hasValidProtocol, addProtocol } from '@/utils/url';
+
+const net = inject<Function>('net');
+if (!net) throw new Error('Net not found!');
 
 const settingsStore = useSettingsStore();
 
@@ -24,21 +27,46 @@ const checkSourcifyConnect = async () => {
 
   if (!settingsStore.sourcifyUrl) {
     showSourcifyWarning('Please provide Sourcify archive URL');
-    return;
-  }
-
-  let json = await net(`${settingsStore.sourcifyUrl}/full_match`);
-  if (json && json.ok) {
-    showSourcifySuccess('Server responded successfully');
     checkingSourcify.value = false;
     return;
   }
 
-  json = await net(`${settingsStore.sourcifyUrl}/partial_match`);
-  if (json && json.ok) {
-    showSourcifySuccess('Server responded successfully');
+  if (/^https?:?\/?\/?$/.test(settingsStore.sourcifyUrl)) {
+    showSourcifyWarning('Please provide a valid URL');
     checkingSourcify.value = false;
     return;
+  }
+
+  if (!hasValidProtocol(settingsStore.sourcifyUrl)) {
+    showSourcifyWarning('Invalid URL. Only http(s) endpoints are supported.');
+    checkingSourcify.value = false;
+    return;
+  }
+
+  if (!hasProtocol(settingsStore.sourcifyUrl)) {
+    settingsStore.setSourcifyUrl(addProtocol(settingsStore.sourcifyUrl));
+  }
+
+  if (rememberSourcify.value) {
+    localStorage.setItem('sourcifyUrl', settingsStore.sourcifyUrl);
+  }
+
+  try {
+    let json = await net(`${settingsStore.sourcifyUrl}/full_match`);
+    if (json && json.ok) {
+      showSourcifySuccess('Server responded successfully');
+      checkingSourcify.value = false;
+      return;
+    }
+
+    json = await net(`${settingsStore.sourcifyUrl}/partial_match`);
+    if (json && json.ok) {
+      showSourcifySuccess('Server responded successfully');
+      checkingSourcify.value = false;
+      return;
+    }
+  } catch (e) {
+    console.error(e);
   }
 
   showSourcifyWarning(
@@ -56,6 +84,28 @@ const showSourcifySuccess = (msg: string) => {
   setTimeout(() => {
     sourcifySuccess.value = '';
   }, 7000);
+};
+
+const handleSourcifyUrlBlur = () => {
+  if (!settingsStore.sourcifyUrl.length) return;
+
+  if (/^https?:?\/?\/?$/.test(settingsStore.sourcifyUrl)) {
+    showSourcifyWarning('Please provide a valid URL');
+    return;
+  }
+
+  if (!hasValidProtocol(settingsStore.sourcifyUrl)) {
+    showSourcifyWarning('Invalid URL. Only http(s) endpoints are supported.');
+    return;
+  }
+
+  if (!hasProtocol(settingsStore.sourcifyUrl)) {
+    settingsStore.setSourcifyUrl(addProtocol(settingsStore.sourcifyUrl));
+  }
+
+  if (rememberSourcify.value) {
+    localStorage.setItem('sourcifyUrl', settingsStore.sourcifyUrl);
+  }
 };
 
 const handleSourcifyUrlInput = () => {
@@ -98,6 +148,7 @@ const handleRememberMeSourcify = () => {
         type="text"
         v-model.trim="settingsStore.sourcifyUrl"
         @input="handleSourcifyUrlInput"
+        @blur="handleSourcifyUrlBlur"
         placeholder="Sourcify archive URL"
         class="text-input"
       />

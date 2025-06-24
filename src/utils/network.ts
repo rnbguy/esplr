@@ -19,8 +19,6 @@ import type {
   TxInfoExtended,
 } from '@/types';
 
-export const net = ftch(fetch);
-
 export const getBlockDetailsByHash = async (
   prov: Web3Provider,
   blockHash: string

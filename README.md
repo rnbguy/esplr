@@ -70,13 +70,13 @@ cd dist && python3 -m http.server --bind 127.0.0.1
 
 The output is 3 files in `dist`: 1 html, 1 js, 1 css.
 
-**(optional) RPC configuration**
+**(optional) RPC, Sourcify configuration**
 
-You can have the app automatically point to an RPC URL provided via an env variable: `VITE_RPC_URL`.
+You can have the app automatically point to an RPC URL or SOURCIFY URL provided via env variables: `VITE_RPC_URL`, `VITE_SOURCIFY_URL`.
 
 For example:
 ```sh
-npm install && VITE_RPC_URL=<RPC_URL> npm run dev
+npm install && VITE_RPC_URL=<RPC_URL> VITE_SOURCIFY_URL=<SOURCIFY_URL> npm run dev
 ```
 
 ## Running RPC backend
