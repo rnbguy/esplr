@@ -10,6 +10,7 @@ import {
   shortenAddr,
   getTransferValue,
   fromWeiToEth,
+  fromWeiToGwei,
   concatTransfers,
   roundToTwo,
 } from '@/utils/utils';
@@ -51,6 +52,7 @@ const value = ref(0);
 const type = ref('');
 const nonce = ref(0);
 const transactionIndex = ref(0);
+const gasPrice = ref(0n);
 const gasUsed = ref(0n);
 const gasLimit = ref(0n);
 const input = ref('');
@@ -110,6 +112,7 @@ const mount = async (tx: string) => {
   // @ts-ignore
   nonce.value = txn.info.nonce;
   transactionIndex.value = txn.info.transactionIndex;
+  gasPrice.value = txn.info.gasPrice;
   gasUsed.value = txn.receipt.gasUsed;
   gasLimit.value = txn.info.gas;
   input.value = txn.info.input;
@@ -284,6 +287,13 @@ const mount = async (tx: string) => {
     </div>
 
     <div class="field">
+      <div class="field-title">Gas Price:</div>
+      <div v-if="!isLoadingTxnBaseInfo" class="eth-value">
+        {{ fromWeiToGwei(gasPrice, 9) }} Gwei ({{ fromWeiToEth(gasPrice, 18) }} ETH)
+      </div>
+    </div>
+
+    <div class="field">
       <div class="field-title">Gas Used & Limit:</div>
       <div class="eth-value" v-if="!isLoadingTxnBaseInfo">
         {{ gasUsed > 0 ? gasUsed : '-' }} / {{ gasLimit > 0 ? gasLimit : '-' }}
@@ -356,7 +366,7 @@ const mount = async (tx: string) => {
           </div>
         </div>
       </div>
-      <div v-else>-</div>
+      <div v-else>No logs for this transactions.</div>
     </div>
   </div>
 </template>
@@ -380,11 +390,13 @@ const mount = async (tx: string) => {
 .log-data {
   overflow-y: scroll;
   max-height: 103px;
+  padding-right: 7px;
 }
 
 .input-data {
   overflow-y: scroll;
   max-height: 130px;
+  padding-right: 7px;
 }
 
 .header {

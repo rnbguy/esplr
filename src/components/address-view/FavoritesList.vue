@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { FavoriteAddress } from '@/types';
-import { fromWeiToEth, shortenFavAddr } from '@/utils/utils';
+import { fromWeiToEth, shortenFavAddr, handleClickCopyIcon } from '@/utils/utils';
 
 const emit = defineEmits(['deleteFavorite']);
 
@@ -10,17 +10,6 @@ defineProps<{
 
 const handleDeleteFavorite = (address: string) => {
   emit('deleteFavorite', address);
-};
-
-const handleCopy = (event: Event, text: string) => {
-  const target = event.target as HTMLElement;
-  target.classList.remove('bi-copy');
-  target.classList.add('bi-check2');
-  navigator.clipboard.writeText(text);
-  setTimeout(() => {
-    target.classList.add('bi-copy');
-    target.classList.remove('bi-check2');
-  }, 2000);
 };
 </script>
 
@@ -32,7 +21,7 @@ const handleCopy = (event: Event, text: string) => {
           {{ shortenFavAddr(fav.address) }}
         </RouterLink>
         <i
-          @click="(e: Event) => handleCopy(e, fav.address)"
+          @click="(e: Event) => handleClickCopyIcon(e, fav.address)"
           class="txn-hash-copy-icon bi bi-copy"
         ></i>
         <!-- <span v-if="fav.type === 'contract'">(contract)</span> -->
@@ -99,6 +88,7 @@ const handleCopy = (event: Event, text: string) => {
 .txn-hash-copy-icon {
   font-size: 16px;
   cursor: pointer;
+  font-style: normal;
 }
 
 .balance-trash {
@@ -133,6 +123,10 @@ const handleCopy = (event: Event, text: string) => {
 .delete-icon {
   cursor: pointer;
   color: var(--red-darker);
+}
+
+.delete-icon i {
+  font-style: normal;
 }
 
 .delete-btn {

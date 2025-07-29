@@ -44,6 +44,17 @@ export const getChainIdName = (netId: string) => {
   }
 };
 
+export const handleClickCopyIcon = (event: Event, text: string) => {
+  const target = event.target as HTMLElement;
+  target.classList.remove('bi-copy');
+  target.classList.add('bi-check2');
+  navigator.clipboard.writeText(text);
+  setTimeout(() => {
+    target.classList.add('bi-copy');
+    target.classList.remove('bi-check2');
+  }, 2000);
+};
+
 export const shortenFavAddr = (address: string | null) => {
   if (!address?.length) {
     return '-';

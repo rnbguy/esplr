@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { watchEffect, ref, computed } from 'vue';
-import { shortenTx } from '@/utils/utils';
+import { shortenTx, handleClickCopyIcon } from '@/utils/utils';
 import type { TransactionListItem } from '@/types';
 import TransactionListItemFromTo from '@/components/address-view/TransactionListItemFromTo.vue';
 
@@ -18,17 +18,6 @@ const isFirstTxnValue = computed(() => {
 watchEffect(() => {
   txns.value = props.transactions;
 });
-
-const handleCopy = (event: Event, text: string) => {
-  const target = event.target as HTMLElement;
-  target.classList.remove('bi-copy');
-  target.classList.add('bi-check2');
-  navigator.clipboard.writeText(text);
-  setTimeout(() => {
-    target.classList.add('bi-copy');
-    target.classList.remove('bi-check2');
-  }, 2000);
-};
 </script>
 
 <template>
@@ -46,7 +35,7 @@ const handleCopy = (event: Event, text: string) => {
           {{ shortenTx(txns[0].hash) }}
         </RouterLink>
         <i
-          @click="(e: Event) => handleCopy(e, txns[0].hash)"
+          @click="(e: Event) => handleClickCopyIcon(e, txns[0].hash)"
           class="txn-hash-copy-icon bi bi-copy"
         ></i>
       </span>
@@ -139,6 +128,7 @@ const handleCopy = (event: Event, text: string) => {
 .txn-hash-copy-icon {
   font-size: 16px;
   cursor: pointer;
+  font-style: normal;
 }
 
 .txns-list {

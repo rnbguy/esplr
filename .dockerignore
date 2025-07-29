@@ -1,4 +1,6 @@
-# Logs
+.github
+.git
+
 logs
 *.log
 npm-debug.log*
@@ -17,7 +19,7 @@ coverage
 /cypress/videos/
 /cypress/screenshots/
 
-# Editor directories and files
+.vscode
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -31,7 +33,6 @@ coverage
 *.patch
 
 /patches_history
-# DAppNodeSDK release directories
 build_*
 releases.json
 docker-compose-tmp.yml

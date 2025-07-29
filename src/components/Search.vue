@@ -80,6 +80,7 @@ const clearWarning = () => {
       class="text-input"
       type="text"
       v-model.trim="search"
+      @keyup.enter="handleSearch"
       placeholder="Search addresses, transactions, blocks"
     />
     <div class="dropdown">
