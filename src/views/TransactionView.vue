@@ -2,7 +2,6 @@
 import { onMounted, inject, ref, watch, type Ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { Web3Provider } from 'micro-eth-signer/net';
-// import { decodeEvent } from 'micro-eth-signer/abi';
 import type { TokenTransfer, TxInfo, TxReceipt } from 'node_modules/micro-eth-signer/net/archive';
 import {
   formatTimestampLocal,
@@ -55,12 +54,21 @@ const transactionIndex = ref(0);
 const gasPrice = ref(0n);
 const gasUsed = ref(0n);
 const gasLimit = ref(0n);
+const maxFeePerGas = ref<bigint | undefined>(undefined);
+const maxPriorityFeePerGas = ref<bigint | undefined>(undefined);
+const transactionFee = ref(0n);
 const input = ref('');
 
 const transactionError = ref(false);
 const transfersError = ref(false);
 const blockError = ref(false);
 const blockConfirmationsError = ref(false);
+const blockBaseFeePerGas = ref<bigint | undefined>(undefined);
+
+// Breakdown values
+const feeBurned = ref<bigint | undefined>(undefined);
+const feeMiner = ref<bigint | undefined>(undefined);
+const feeSaved = ref<bigint | undefined>(undefined);
 
 onMounted(async () => {
   await mount(route.params.tx as string);
@@ -96,6 +104,7 @@ const mount = async (tx: string) => {
     blockError.value = false;
     const blockDetails = await prov.blockInfo(blockNumber);
     timestamp.value = formatTimestampLocal(blockDetails.timestamp);
+    blockBaseFeePerGas.value = blockDetails.baseFeePerGas;
   } catch (error) {
     blockError.value = true;
     console.error('Error loading block details:', error);
@@ -104,8 +113,7 @@ const mount = async (tx: string) => {
   // TODO: fix ts ignores below
 
   action.value = getTransactionMethodName(txn.info);
-  // @ts-ignore
-  success.value = txn.receipt.status === 1;
+  success.value = txn.receipt?.status === 1;
   // @ts-ignore
   value.value = txn.info.value;
   type.value = txn.type;
@@ -113,9 +121,36 @@ const mount = async (tx: string) => {
   nonce.value = txn.info.nonce;
   transactionIndex.value = txn.info.transactionIndex;
   gasPrice.value = txn.info.gasPrice;
-  gasUsed.value = txn.receipt.gasUsed;
+  gasUsed.value = txn.receipt ? txn.receipt.gasUsed : 0n;
   gasLimit.value = txn.info.gas;
+  maxFeePerGas.value = txn.info.maxFeePerGas
+  maxPriorityFeePerGas.value = txn.info.maxPriorityFeePerGas
   input.value = txn.info.input;
+
+  if (txn.receipt && gasUsed.value > 0n) {
+    const { effectiveGasPrice, gasUsed } = txn.receipt;
+
+    if (effectiveGasPrice) {
+      transactionFee.value = effectiveGasPrice * gasUsed;
+    } else if (maxFeePerGas.value && maxPriorityFeePerGas.value && blockBaseFeePerGas.value) {
+      const effectiveGasPrice = blockBaseFeePerGas.value + maxPriorityFeePerGas.value;
+      const actualGasPrice = effectiveGasPrice > maxFeePerGas.value
+        ? maxFeePerGas.value
+        : effectiveGasPrice;
+      transactionFee.value = actualGasPrice * gasUsed;
+    } else if (type.value === 'legacy' && gasPrice.value > 0n) {
+      transactionFee.value = gasPrice.value * gasUsed;
+    }
+
+    // only for EIP-1559 (baseFeePerGas, maxFeePerGas, maxPriorityFeePerGas prensented with EIP-1559)
+    feeBurned.value = blockBaseFeePerGas.value
+      ? gasUsed * blockBaseFeePerGas.value : undefined;
+    feeMiner.value = feeBurned.value && transactionFee.value
+      ? transactionFee.value - feeBurned.value : undefined;
+    feeSaved.value = maxFeePerGas.value && transactionFee.value
+      ? (maxFeePerGas.value * gasUsed) - transactionFee.value : undefined;
+  }
+
   isLoadingTxnBaseInfo.value = false;
 
   try {
@@ -289,7 +324,29 @@ const mount = async (tx: string) => {
     <div class="field">
       <div class="field-title">Gas Price:</div>
       <div v-if="!isLoadingTxnBaseInfo" class="eth-value">
-        {{ fromWeiToGwei(gasPrice, 9) }} Gwei ({{ fromWeiToEth(gasPrice, 18) }} ETH)
+        {{ fromWeiToGwei(gasPrice, 9) }} Gwei <small>({{ fromWeiToEth(gasPrice, 18) }} ETH)</small>
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="field-title">Transaction Fee:</div>
+      <div class="eth-value" v-if="!isLoadingTxnBaseInfo">
+        <span v-if="transactionFee > 0">
+          {{ fromWeiToEth(transactionFee, 18) }} ETH
+        </span>
+        <span v-else>-</span>
+
+        <div class="fee-breakdown" v-if="transactionFee > 0">
+          <span v-if="feeBurned !== undefined" class="label small fee-chip burned">
+            🔥 Burnt: {{ fromWeiToEth(feeBurned, 18) }} ETH
+          </span>
+          <span v-if="feeSaved !== undefined && feeSaved >= 0" class="label small fee-chip saved">
+            💸 Sender savings: {{ fromWeiToEth(feeSaved, 18) }} ETH
+          </span>
+          <span v-if="feeMiner !== undefined && feeMiner >= 0" class="label small fee-chip">
+            💰 Txn miner's reward: {{ fromWeiToEth(feeMiner, 18) }} ETH
+          </span>
+        </div>
       </div>
     </div>
 
@@ -299,6 +356,42 @@ const mount = async (tx: string) => {
         {{ gasUsed > 0 ? gasUsed : '-' }} / {{ gasLimit > 0 ? gasLimit : '-' }}
         <span v-if="gasUsed > 0 && gasLimit > 0">
           ({{ roundToTwo((Number(gasUsed) / Number(gasLimit)) * 100) }}%)
+        </span>
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="field-title">Max Fee Per Gas:</div>
+      <div v-if="!isLoadingTxnBaseInfo" class="eth-value">
+        <span v-if="maxFeePerGas !== undefined">
+          {{ fromWeiToGwei(maxFeePerGas, 9) }} Gwei <small>({{ fromWeiToEth(maxFeePerGas, 18) }} ETH)</small>
+        </span>
+        <span v-else>-</span>
+      </div>
+    </div>
+
+    <div class="field field-align-center">
+      <div class="field-title">Max Priority Fee <br/> Per Gas:</div>
+      <div v-if="!isLoadingTxnBaseInfo" class="eth-value">
+        <span v-if="maxPriorityFeePerGas !== undefined">
+          {{ fromWeiToGwei(maxPriorityFeePerGas, 9) }} Gwei <small>({{ fromWeiToEth(maxPriorityFeePerGas, 18) }} ETH)</small>
+        </span>
+        <span v-else>-</span>
+      </div>
+    </div>
+
+    <div class="field field-align-center">
+      <div class="field-title">Block Base Fee <br/> Per Gas:</div>
+      <div v-if="!isLoadingTxnBaseInfo && !blockError" class="eth-value">
+        <span v-if="blockBaseFeePerGas !== undefined">
+          {{ fromWeiToGwei(blockBaseFeePerGas, 9) }} Gwei <small>({{ fromWeiToEth(blockBaseFeePerGas, 18) }} ETH)</small>
+        </span>
+        <span v-else>-</span>
+      </div>
+      <div v-if="blockError && !isLoadingTxnBaseInfo">
+        <span class="warning">
+          <i class="bi bi-exclamation-triangle"></i>
+          Block data could not be loaded. Probably because of the Ethereum node limitations.
         </span>
       </div>
     </div>
@@ -467,6 +560,10 @@ const mount = async (tx: string) => {
   word-break: break-word;
 }
 
+.field-align-center {
+  align-items: center;
+}
+
 .transfers-block {
   flex-direction: column;
 }
@@ -578,5 +675,25 @@ const mount = async (tx: string) => {
 
 .warning {
   font-size: 17px;
+  word-break: normal;
+}
+
+.fee-breakdown {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.fee-chip.burned {
+  color: var(--error);
+}
+
+.fee-chip.saved {
+  color: var(--success);
+}
+
+.icon {
+  font-style: normal;
 }
 </style>
