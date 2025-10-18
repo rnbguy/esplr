@@ -4,6 +4,7 @@ import type {
   TokenBalance,
   TransactionListItem,
   UnspentWithUsd,
+  NftLog
 } from '@/types';
 import { MemoryAddressStorage } from '@/cache/address/memory-address-storage';
 import { LocalStorageAddressStorage } from '@/cache/address/localstorage-address-storage';
@@ -58,6 +59,7 @@ export class AddressCache {
     to.addAllTokenCreator(from.getAllTokenCreator());
     to.addAllEns(from.getAllEns());
     to.addAllFavoriteAddresses(from.getFavoriteAddresses());
+    to.addAllNftLogs(from.getAllNftLogs());
 
     from.clearAll();
   }
@@ -256,5 +258,21 @@ export class AddressCache {
 
   removeFavoriteAddress(address: string): void {
     AddressCache.strategy.removeFavoriteAddress(address);
+  }
+
+  /**
+   * NFT Cache
+   */
+
+  getNftLogs(address: string): NftLog[] {
+    return AddressCache.strategy.getNftLogs(address);
+  }
+
+  addNftLogs(address: string, logs: NftLog[]): void {
+    AddressCache.strategy.addNftLogs(address, logs);
+  }
+
+  hasNftLogs(address: string): boolean {
+    return AddressCache.strategy.hasNftLogs(address);
   }
 }

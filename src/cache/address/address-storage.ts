@@ -4,6 +4,7 @@ import type {
   TokenBalance,
   TransactionListItem,
   UnspentWithUsd,
+  NftLog,
 } from '@/types';
 
 export interface AddressStorage {
@@ -73,4 +74,10 @@ export interface AddressStorage {
   addFavoriteAddress(address: string): void;
   isFavoriteAddress(address: string): boolean;
   removeFavoriteAddress(address: string): void;
+
+  addAllNftLogs(logs: Map<string, NftLog[]>): void;
+  getAllNftLogs(): Map<string, NftLog[]>;
+  getNftLogs(address: string): NftLog[];
+  addNftLogs(address: string, logs: NftLog[]): void;
+  hasNftLogs(address: string): boolean;
 }

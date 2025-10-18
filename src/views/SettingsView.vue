@@ -8,7 +8,9 @@ import { useAppStore } from '@/stores/app';
 import { useSettingsStore } from '@/stores/settings';
 import LocalStorage from '@/components/settings-view/LocalStorage.vue';
 import SettingsSourcify from '@/components/settings-view/SettingsSourcify.vue';
+import ShowImages from '@/components/settings-view/ShowImages.vue';
 import MainPageAndAddressCacheManager from '@/cache/main-page-and-address-cache-manager';
+import { isSettingsInLocalStorage } from '@/utils/localstorage';
 
 const provider = inject<Ref<Web3Provider>>('provider');
 if (!provider) throw new Error('Provider not found!');
@@ -28,8 +30,6 @@ const urlRouting = ref(sessionStorage.getItem('urlRouting') === 'false' ? false 
 const networkName = computed(() =>
   appStore.networkName === 'Mainnet' ? 'Ethereum Mainnet' : appStore.networkName
 );
-
-const isSettingsInLocalStorage = () => !!localStorage.getItem('settings')?.length;
 
 onMounted(() => {
   cashedAddresses.value = cache.allCachedAddresses();
@@ -84,6 +84,7 @@ const updateSettingsInLocalStorage = () => {
     },
     usdPrices: settingsStore.showUsdPrices,
     cacheUpdateInterval: settingsStore.cacheUpdateInterval,
+    showImages: settingsStore.showImages,
   };
   localStorage.setItem('settings', JSON.stringify(settings));
 };
@@ -194,7 +195,10 @@ const toggleUrlRouting = () => {
     </ul>
     <div v-if="hasMainPageCache">Main page is cached.</div>
     <div v-if="favoriteAddresses.length">Favorites addresses list is cached.</div>
-    <div v-if="settingsStore.cacheSettingsLocalStorage">Settings is cached in the browser's local storage on disk.</div>
+    <div v-if="settingsStore.cacheSettingsLocalStorage">
+      ⚠️ Settings is cached in the browser's local storage on disk.
+      Disable this option above to remove settings from local storage.
+    </div>
     <div class="clear-cache-btn-wrapper">
       <button
         v-if="cashedAddresses.length || hasMainPageCache"
@@ -211,6 +215,8 @@ const toggleUrlRouting = () => {
       No cached data for addresses.
     </div>
   </div>
+
+  <ShowImages @updateSettingsInLocalStorage="updateSettingsInLocalStorage" />
 </template>
 
 <style scoped>

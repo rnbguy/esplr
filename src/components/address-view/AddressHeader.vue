@@ -3,6 +3,7 @@ import { shortenTx } from '@/utils/utils';
 import type { TokenBalance, OtsGetContractCreatorResponse, ERC20TokenInfo } from '@/types';
 import TokensList from '@/components/address-view/TokensList.vue';
 import AddressHeaderAddrInfo from '@/components/address-view/AddressHeaderAddrInfo.vue';
+import NFTsList from '@/components/address-view/NFTsList.vue';
 
 const emit = defineEmits(['updateData']);
 
@@ -23,6 +24,7 @@ const props = defineProps<{
   unspentPriceError: boolean;
   unspentError: boolean;
   isSourcify: boolean;
+  isNFT: boolean;
 }>();
 
 const handleUpdateData = (addresses: string[]) => {
@@ -41,6 +43,7 @@ const handleUpdateData = (addresses: string[]) => {
       :loadingUnspent="loadingUnspent"
       :unspentError="unspentError"
       :isSourcify="isSourcify"
+      :isNFT="isNFT"
       @updateData="handleUpdateData"
     />
   </div>
@@ -63,8 +66,10 @@ const handleUpdateData = (addresses: string[]) => {
       </RouterLink>
     </div>
 
+    <NFTsList v-if="isNFT" :address="address" />
+
     <TokensList
-      v-if="!isSourcify"
+      v-if="!isSourcify && !isNFT"
       :unspentEth="sumBalance"
       :unspentEthUsd="unspentEthUsd"
       :tokens="tokens"

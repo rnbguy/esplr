@@ -78,7 +78,7 @@ const openPage = async (page: string) => {
 
     <div v-if="appStore.otsApiError" class="warning ots-api-warning">
       <i class="bi bi-exclamation-triangle"></i>
-      Transactions can not be loaded. Erigon OTS namespace is disabled or Ethereum node has
+      Transactions can not be loaded. Check address value. Erigon OTS namespace is disabled or Ethereum node has
       limitations or Erigon error has occurred. Check Erigon or node logs.
     </div>
 

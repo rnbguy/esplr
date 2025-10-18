@@ -4,6 +4,7 @@ import type {
   TokenBalance,
   TransactionListItem,
   UnspentWithUsd,
+  NftLog
 } from '@/types';
 import { type AddressStorage } from '@/cache/address/address-storage';
 import { stringify, parse } from '@/utils/json';
@@ -75,6 +76,7 @@ export class LocalStorageAddressStorage implements AddressStorage {
     this.removeFromLocalStorage('tokenInfo');
     this.removeFromLocalStorage('tokenCreator');
     this.removeFromLocalStorage('ens');
+    this.removeFromLocalStorage('nftLogs');
   }
 
   // tokenTransfersTransactions is not cleared here (because we are not loading them from scratch later for optimization)
@@ -87,6 +89,7 @@ export class LocalStorageAddressStorage implements AddressStorage {
       tokenInfo,
       tokenCreator,
       ens,
+      nftLogs
     } = this.getAllCachedData();
 
     addresses.forEach((address) => {
@@ -97,6 +100,7 @@ export class LocalStorageAddressStorage implements AddressStorage {
       delete tokenInfo[address];
       delete tokenCreator[address];
       delete ens[address];
+      delete nftLogs[address];
     });
 
     this.saveToLocalStorage('tokens', tokens);
@@ -106,6 +110,7 @@ export class LocalStorageAddressStorage implements AddressStorage {
     this.saveToLocalStorage('tokenInfo', tokenInfo);
     this.saveToLocalStorage('tokenCreator', tokenCreator);
     this.saveToLocalStorage('ens', ens);
+    this.saveToLocalStorage('nftLogs', nftLogs);
   }
 
   clearFavorites(): void {
@@ -118,6 +123,7 @@ export class LocalStorageAddressStorage implements AddressStorage {
       tokenInfo,
       tokenCreator,
       ens,
+      nftLogs
     } = this.getAllCachedData();
 
     const favorites = this.getFavoriteAddresses();
@@ -131,6 +137,7 @@ export class LocalStorageAddressStorage implements AddressStorage {
       delete tokenInfo[address];
       delete tokenCreator[address];
       delete ens[address];
+      delete nftLogs[address];
     });
 
     this.saveToLocalStorage('tokens', tokens);
@@ -141,6 +148,7 @@ export class LocalStorageAddressStorage implements AddressStorage {
     this.saveToLocalStorage('tokenInfo', tokenInfo);
     this.saveToLocalStorage('tokenCreator', tokenCreator);
     this.saveToLocalStorage('ens', ens);
+    this.saveToLocalStorage('nftLogs', nftLogs);
 
     this.removeFromLocalStorage('favoriteAddresses');
   }
@@ -155,6 +163,7 @@ export class LocalStorageAddressStorage implements AddressStorage {
       tokenInfo,
       tokenCreator,
       ens,
+      nftLogs
     } = this.getAllCachedData();
 
     return Array.from(
@@ -167,6 +176,7 @@ export class LocalStorageAddressStorage implements AddressStorage {
         ...Object.keys(tokenInfo),
         ...Object.keys(tokenCreator),
         ...Object.keys(ens),
+        ...Object.keys(nftLogs)
       ])
     );
   }
@@ -180,6 +190,7 @@ export class LocalStorageAddressStorage implements AddressStorage {
     const tokenInfo = this.getFromLocalStorage('tokenInfo') ?? {};
     const tokenCreator = this.getFromLocalStorage('tokenCreator') ?? {};
     const ens = this.getFromLocalStorage('ens') ?? {};
+    const nftLogs = this.getFromLocalStorage('nftLogs') ?? {};
 
     return {
       tokens,
@@ -190,6 +201,7 @@ export class LocalStorageAddressStorage implements AddressStorage {
       tokenInfo,
       tokenCreator,
       ens,
+      nftLogs
     };
   };
 
@@ -511,5 +523,33 @@ export class LocalStorageAddressStorage implements AddressStorage {
     const addr = address.toLowerCase();
     const updated = cached.filter((item: string) => item !== addr);
     this.saveToLocalStorage('favoriteAddresses', updated);
+  }
+
+  /**
+   * NFT Cache
+   */
+
+  addAllNftLogs(logs: Map<string, NftLog[]>): void {
+    this.addAllUnitToCache('nftLogs', logs);
+  }
+
+  getAllNftLogs(): Map<string, NftLog[]> {
+    return this.getAllCachedUnitAsMap('nftLogs');
+  }
+
+  getNftLogs(address: string): NftLog[] {
+    const cached = this.getFromLocalStorage('nftLogs') ?? {};
+    return cached[address] || [];
+  }
+
+  addNftLogs(address: string, logs: NftLog[]): void {
+    const cached = this.getFromLocalStorage('nftLogs') ?? {};
+    cached[address] = logs;
+    this.saveToLocalStorage('nftLogs', cached);
+  }
+
+  hasNftLogs(address: string): boolean {
+    const cached = this.getFromLocalStorage('nftLogs') ?? {};
+    return address in cached;
   }
 }

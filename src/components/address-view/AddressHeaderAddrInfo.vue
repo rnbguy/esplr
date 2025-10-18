@@ -24,6 +24,7 @@ const props = defineProps<{
   isContract: boolean;
   unspentError: boolean;
   isSourcify: boolean;
+  isNFT: boolean;
 }>();
 
 onMounted(() => {
@@ -80,17 +81,25 @@ const toggleFavorite = () => {
         class="warning txns-sent-warning"
       >
         <i class="bi bi-exclamation-triangle"></i>
-        Value may not be accurate. Erigon OTS namespace is disabled or Ethereum node has limitations
+        Check the address value. Or Erigon OTS namespace is disabled or Ethereum node has limitations
         or Erigon error has occurred. Check Erigon or node logs.
       </div>
 
       <div class="actions">
-        <div class="actions-favorites-sourcify">
+        <div class="actions-btns">
           <button @click="toggleFavorite" class="btn btn-dark">
             <i v-if="isFavorite" class="bi bi-star-fill"></i>
             <i v-else class="bi bi-star"></i>
             {{ isFavorite ? 'Unfavorite' : 'Add to favorite' }}
           </button>
+          <div class="nfts-btn-wrapper">
+            <RouterLink v-if="!isNFT" :to="`/address/${address}/nft`" class="btn btn-dark nfts-link" title="NFTs">
+              NFTs
+            </RouterLink>
+            <RouterLink v-if="isNFT" :to="`/address/${address}`" class="btn btn-dark nfts-link" title="Balances">
+              Balances
+            </RouterLink>
+          </div>
           <div v-if="settingsStore.sourcifyUrl.length">
             <RouterLink
               v-if="!isSourcify"
@@ -138,12 +147,17 @@ const toggleFavorite = () => {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  align-items: flex-start;
   gap: 7px;
   margin-top: 5px;
 }
 
-@media (min-width: 475px) {
+@media (min-width: 414px) {
+  .actions {
+    align-items: flex-start;
+  }
+}
+
+@media (min-width: 485px) {
   .actions {
     flex-direction: row;
   }
@@ -174,7 +188,7 @@ const toggleFavorite = () => {
   margin-left: 7px;
 }
 
-@media (min-width: 475px) {
+@media (min-width: 485px) {
   .last-update {
     margin-bottom: 15px;
     margin-top: 2px;
@@ -193,7 +207,7 @@ const toggleFavorite = () => {
   align-items: center;
 }
 
-@media (min-width: 475px) {
+@media (min-width: 485px) {
   .update-btn-wrapper-mobile {
     display: block;
   }
@@ -240,16 +254,17 @@ const toggleFavorite = () => {
   height: 18px;
 }
 
-.actions-favorites-sourcify {
+.actions-btns {
   display: flex;
   flex-direction: column;
   gap: 7px;
   min-width: 162px;
 }
 
-@media (min-width: 375px) {
-  .actions-favorites-sourcify {
+@media (min-width: 414px) {
+  .actions-btns {
     flex-direction: row;
+    align-items: center;
   }
 }
 
@@ -267,5 +282,12 @@ const toggleFavorite = () => {
   .only-mobile {
     display: none !important;
   }
+}
+
+.nfts-link {
+  display: block;
+  text-align: center;
+  color: white;
+  line-height: 1.15;
 }
 </style>

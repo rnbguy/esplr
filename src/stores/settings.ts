@@ -1,6 +1,6 @@
 import { ref } from 'vue';
 import { defineStore } from 'pinia';
-import { SHOW_PRICES } from '@/config';
+import { SHOW_PRICES, SHOW_IMAGES } from '@/config';
 import { CACHE_INTERVAL_MINUTES } from '@/config';
 
 let cached = null;
@@ -22,6 +22,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const cacheUpdateInterval = ref(cached?.cacheUpdateInterval ?? CACHE_INTERVAL_MINUTES);
   const cacheSettingsLocalStorage = ref(!!localStorageSettings?.length);
   const sourcifyUrl = ref(initialSourcifyUrl);
+  const showImages = ref(cached?.showImages ?? SHOW_IMAGES);
 
   function toggleShowUsdPrices() {
     showUsdPrices.value = !showUsdPrices.value;
@@ -47,6 +48,10 @@ export const useSettingsStore = defineStore('settings', () => {
     sourcifyUrl.value = url;
   }
 
+  function toggleShowImages() {
+    showImages.value = !showImages.value;
+  }
+
   return {
     showUsdPrices,
     toggleShowUsdPrices,
@@ -59,5 +64,7 @@ export const useSettingsStore = defineStore('settings', () => {
     setCacheSettingsLocalStorage,
     sourcifyUrl,
     setSourcifyUrl,
+    showImages,
+    toggleShowImages,
   };
 });

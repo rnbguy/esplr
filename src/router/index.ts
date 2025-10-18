@@ -29,6 +29,11 @@ const router = createRouter({
       component: AddressView,
     },
     {
+      path: '/address/:address/nft',
+      name: 'nft',
+      component: AddressView,
+    },
+    {
       path: '/tx/:tx',
       name: 'transaction',
       component: TransactionView,

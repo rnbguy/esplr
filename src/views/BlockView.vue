@@ -2,8 +2,9 @@
 import { onMounted, inject, ref, watch, type Ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { Web3Provider } from 'micro-eth-signer/net';
-import { formatTimestampLocal, fromWeiToGwei } from '@/utils/utils';
+import { formatTimestampLocal, fromWeiToGwei, fromWeiToEth } from '@/utils/utils';
 import type { BlockInfo } from 'node_modules/micro-eth-signer/net/archive';
+import { hexToNumber } from 'micro-eth-signer/utils';
 
 // Block #1 in eth will not show full list of txs: they are present in
 // genesis_block.json which we don't include
@@ -24,10 +25,11 @@ const gasUsed = ref(0n);
 const gasLimit = ref(0n);
 const blobGasUsed = ref(0n);
 const baseFeePerGas = ref('');
+const burntFees = ref(0n);
 
 const loadingBlock = ref(true);
 
-type extendedBlockInfo = BlockInfo & { blobGasUsed: bigint; withdrawals: unknown[] };
+type extendedBlockInfo = BlockInfo & { blobGasUsed: string; withdrawals: unknown[] };
 
 onMounted(async () => {
   await mount(route.params.block as string);
@@ -55,10 +57,19 @@ const mount = async (block: string) => {
   withdrawalsCount.value = details?.withdrawals ? details.withdrawals.length : 0;
   gasUsed.value = details.gasUsed;
   gasLimit.value = details.gasLimit;
-  blobGasUsed.value = details?.blobGasUsed ?? 0n;
   baseFeePerGas.value = details.baseFeePerGas
-    ? `${fromWeiToGwei(details.baseFeePerGas, 9)} Gwei`
-    : '-';
+  ? `${fromWeiToGwei(details.baseFeePerGas, 9)} Gwei`
+  : '-';
+  
+  try {
+    blobGasUsed.value = details?.blobGasUsed.length ? hexToNumber(details.blobGasUsed) : 0n;
+  } catch (error) {
+    console.error('Error parsing block gas used:', error);
+  }
+
+  if (details.gasUsed && details.baseFeePerGas) {
+    burntFees.value = details.gasUsed * details.baseFeePerGas;
+  }
 };
 </script>
 
@@ -112,6 +123,14 @@ const mount = async (block: string) => {
     <div class="field">
       <div class="field-title">Base Fee Per Gas:</div>
       <div class="hash">{{ baseFeePerGas }}</div>
+    </div>
+    <div class="field">
+      <div class="field-title">Blob Gas Used:</div>
+      <div class="hash">{{ blobGasUsed > 0 ? blobGasUsed : '-' }}</div>
+    </div>
+    <div class="field">
+      <div class="field-title">Burnt Fees:</div>
+      <div class="hash">{{ burntFees > 0 ? `🔥 ${fromWeiToEth(burntFees, 18)} ETH` : '-' }}</div>
     </div>
   </div>
 </template>

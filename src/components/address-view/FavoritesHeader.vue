@@ -62,7 +62,7 @@ const handleDeleteFavorite = (address: string) => {
   <div><b>Transactions Sent (non contracts):</b> {{ unspentError ? 0 : sumUnspentTxns }}</div>
   <div v-if="appStore.otsApiError || unspentError" class="warning txns-sent-warning">
     <i class="bi bi-exclamation-triangle"></i>
-    Value may not be accurate. Erigon OTS namespace is disabled or Ethereum node has limitations or
+    Check the addresses values. Erigon OTS namespace is disabled or Ethereum node has limitations or
     Erigon error has occurred. Check Erigon or node logs.
   </div>
 

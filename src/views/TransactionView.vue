@@ -331,21 +331,27 @@ const mount = async (tx: string) => {
     <div class="field">
       <div class="field-title">Transaction Fee:</div>
       <div class="eth-value" v-if="!isLoadingTxnBaseInfo">
-        <span v-if="transactionFee > 0">
-          {{ fromWeiToEth(transactionFee, 18) }} ETH
-        </span>
-        <span v-else>-</span>
+        <div>
+          <span v-if="transactionFee > 0">
+            {{ fromWeiToEth(transactionFee, 18) }} ETH
+          </span>
+          <span v-else>-</span>
+        </div>
 
         <div class="fee-breakdown" v-if="transactionFee > 0">
-          <span v-if="feeBurned !== undefined" class="label small fee-chip burned">
-            🔥 Burnt: {{ fromWeiToEth(feeBurned, 18) }} ETH
-          </span>
-          <span v-if="feeSaved !== undefined && feeSaved >= 0" class="label small fee-chip saved">
-            💸 Sender savings: {{ fromWeiToEth(feeSaved, 18) }} ETH
-          </span>
-          <span v-if="feeMiner !== undefined && feeMiner >= 0" class="label small fee-chip">
-            💰 Txn miner's reward: {{ fromWeiToEth(feeMiner, 18) }} ETH
-          </span>
+          <div>
+            <span v-if="feeBurned !== undefined" class="label small fee-chip burned">
+              🔥 Burnt: {{ fromWeiToEth(feeBurned, 18) }} ETH
+            </span>
+          </div><div>
+            <span v-if="feeSaved !== undefined && feeSaved >= 0" class="label small fee-chip saved">
+              💸 Sender savings: {{ fromWeiToEth(feeSaved, 18) }} ETH
+            </span>
+          </div><div>
+            <span v-if="feeMiner !== undefined && feeMiner >= 0" class="label small fee-chip">
+              💰 Txn miner's reward: {{ fromWeiToEth(feeMiner, 18) }} ETH
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -370,7 +376,7 @@ const mount = async (tx: string) => {
       </div>
     </div>
 
-    <div class="field field-align-center">
+    <div class="field field-align-center-sm">
       <div class="field-title">Max Priority Fee <br/> Per Gas:</div>
       <div v-if="!isLoadingTxnBaseInfo" class="eth-value">
         <span v-if="maxPriorityFeePerGas !== undefined">
@@ -380,7 +386,7 @@ const mount = async (tx: string) => {
       </div>
     </div>
 
-    <div class="field field-align-center">
+    <div class="field field-align-center-sm">
       <div class="field-title">Block Base Fee <br/> Per Gas:</div>
       <div v-if="!isLoadingTxnBaseInfo && !blockError" class="eth-value">
         <span v-if="blockBaseFeePerGas !== undefined">
@@ -548,7 +554,7 @@ const mount = async (tx: string) => {
   border-bottom: 1px solid var(--ash-grey);
 }
 
-@media (min-width: 425px) {
+@media (min-width: 576px) {
   .field {
     flex-direction: row;
   }
@@ -560,8 +566,10 @@ const mount = async (tx: string) => {
   word-break: break-word;
 }
 
-.field-align-center {
-  align-items: center;
+@media (min-width: 576px) {
+  .field-align-center-sm {
+    flex-direction: row;
+  }
 }
 
 .transfers-block {
@@ -679,10 +687,15 @@ const mount = async (tx: string) => {
 }
 
 .fee-breakdown {
-  margin-top: 6px;
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.fee-chip {
+  padding: 3px 6px !important;
+  margin: 0 !important;
+  display: inline-flex;
 }
 
 .fee-chip.burned {

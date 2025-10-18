@@ -1,4 +1,4 @@
-import type { TxInfo, Unspent, TokenTransfer } from 'node_modules/micro-eth-signer/net/archive';
+import type { TxInfo, Unspent, TokenTransfer, Log } from 'node_modules/micro-eth-signer/net/archive';
 
 export type TxInfoExtended = TxInfo & {
   blockData: {
@@ -162,4 +162,23 @@ export type NetTransfer = {
   addr: string;
   type: string;
   transfer: TokenTransfer;
+};
+
+export type NftLog = Log & {
+  topicsDecoded: {
+    from: string;
+    to: string;
+    tokenId: bigint;
+  };
+  tokenInfo: any;
+  topicsTokenOwner: string | null | undefined;
+  topicsTokenUri?: {
+    original?: string;
+    resolved?: string;
+  };
+  tokenMetadata?: {
+    symbol?: string;
+    image?: string;
+  };
+  tokenImageResolved?: string;
 };

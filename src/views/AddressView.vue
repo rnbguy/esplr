@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, inject, watch, ref, type Ref, computed } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { Web3Provider, Chainlink } from 'micro-eth-signer/net';
 import { ENS } from 'micro-eth-signer/net';
 import { ETH_DECIMALS } from '@/constants';
@@ -36,7 +36,9 @@ import { MainPageCache } from '@/cache/main-page/main-page';
 import { DetailsPagination } from '@/views/DetailsPagination';
 import { FavoritesPagination } from '@/views/FavoritesPagination';
 
+const router = useRouter();
 const route = useRoute();
+
 const provider = inject<Ref<Web3Provider>>('provider');
 if (!provider) throw new Error('Provider not found!');
 const prov = provider.value;
@@ -76,6 +78,7 @@ const currentPage = ref(1);
 
 const isSourcify = computed(() => route.name === 'sourcify');
 const isFavorites = computed(() => route.name === 'favorites');
+const isNFT = computed(() => route.name === 'nft');
 const favorites = ref<FavoriteAddress[]>([]);
 
 const sumUnspentTxns = ref(0n);
@@ -156,6 +159,10 @@ const updateData = async (addresses: string[]) => {
   if (!window.navigator.onLine) {
     showOfflineNotice();
     return;
+  }
+
+  if (isNFT.value) {
+    router.push({ path: `/address/${addresses[0]}` });
   }
 
   cache.clearAddressesForUpdate(addresses);
@@ -702,6 +709,7 @@ const deleteFavorite = async (address: string) => {
     :unspentPriceError="unspentPriceError"
     :unspentError="unspentError"
     :isSourcify="isSourcify"
+    :isNFT="isNFT"
     @updateData="updateData"
   />
   <FavoritesHeader

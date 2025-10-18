@@ -4,6 +4,7 @@ import type {
   TokenBalance,
   TransactionListItem,
   UnspentWithUsd,
+  NftLog
 } from '@/types';
 import { type AddressStorage } from '@/cache/address/address-storage';
 
@@ -21,6 +22,8 @@ export class MemoryAddressStorage implements AddressStorage {
   private ens: Map<string, string> = new Map();
 
   private favoriteAddresses = new Set<string>();
+
+  private nftLogs: Map<string, NftLog[]> = new Map();
 
   private constructor() {}
 
@@ -49,6 +52,7 @@ export class MemoryAddressStorage implements AddressStorage {
     this.tokenInfo.clear();
     this.tokenCreator.clear();
     this.ens.clear();
+    this.nftLogs.clear();
   }
 
   // tokenTransfersTransactions is not cleared here (because we are not loading them from scratch later for optimization)
@@ -60,6 +64,7 @@ export class MemoryAddressStorage implements AddressStorage {
     this.tokenInfo.delete(address);
     this.tokenCreator.delete(address);
     this.ens.delete(address);
+    this.nftLogs.delete(address);
   }
 
   clearFavorites(): void {
@@ -72,6 +77,7 @@ export class MemoryAddressStorage implements AddressStorage {
       this.tokenInfo.delete(address);
       this.tokenCreator.delete(address);
       this.ens.delete(address);
+      this.nftLogs.delete(address);
     });
     this.favoriteAddresses.clear();
   }
@@ -93,6 +99,7 @@ export class MemoryAddressStorage implements AddressStorage {
         ...this.tokenInfo.keys(),
         ...this.tokenCreator.keys(),
         ...this.ens.keys(),
+        ...this.nftLogs.keys()
       ])
     );
   }
@@ -350,5 +357,29 @@ export class MemoryAddressStorage implements AddressStorage {
   removeFavoriteAddress(address: string): void {
     const addr = address.toLowerCase();
     this.favoriteAddresses.delete(addr);
+  }
+
+  /**
+   * NFT Cache
+   */
+
+  addAllNftLogs(nftLogs: Map<string, NftLog[]>): void {
+    this.nftLogs = nftLogs;
+  }
+
+  getAllNftLogs(): Map<string, NftLog[]> {
+    return this.nftLogs;
+  }
+
+  getNftLogs(address: string): NftLog[] {
+    return this.nftLogs.get(address) || [];
+  }
+
+  addNftLogs(address: string, logs: NftLog[]): void {
+    this.nftLogs.set(address, logs);
+  }
+ 
+  hasNftLogs(address: string): boolean {
+    return this.nftLogs.has(address);
   }
 }

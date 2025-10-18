@@ -29,3 +29,10 @@ export function hasProtocol(url: string) {
     return false; // Invalid URL
   }
 }
+
+export function ipfsResolve(url: string) {
+  if (url.startsWith('ipfs://')) {
+    return url.replace('ipfs://', 'https://ipfs.io/ipfs/');
+  }
+  return url;
+}
